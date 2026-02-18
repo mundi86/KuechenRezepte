@@ -109,3 +109,29 @@ else
         <a asp-page="/Rezepte/Create" class="btn btn-primary">Neues Rezept</a>
     </section>
 }
+
+@if (Model.TotalPages > 1)
+{
+    <nav aria-label="Seitennavigation" class="mt-4 d-flex justify-content-center">
+        <ul class="pagination">
+            @if (Model.PageNumber > 1)
+            {
+                <li class="page-item">
+                    <a class="page-link" href="?pageNumber=@(Model.PageNumber - 1)&searchTerm=@Model.SearchTerm&kategorie=@Model.Kategorie">&#8249;</a>
+                </li>
+            }
+            @for (var i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                    <a class="page-link" href="?pageNumber=@i&searchTerm=@Model.SearchTerm&kategorie=@Model.Kategorie">@i</a>
+                </li>
+            }
+            @if (Model.PageNumber < Model.TotalPages)
+            {
+                <li class="page-item">
+                    <a class="page-link" href="?pageNumber=@(Model.PageNumber + 1)&searchTerm=@Model.SearchTerm&kategorie=@Model.Kategorie">&#8250;</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

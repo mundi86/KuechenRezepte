@@ -27,8 +27,7 @@ public class RandomModel : PageModel
             return;
         }
 
-        var random = new Random();
-        var skip = random.Next(count);
+        var skip = Random.Shared.Next(count);
         
         Rezept = await _context.Rezepte
             .Include(r => r.RezeptZutaten)

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using KuechenRezepte.Data;
+using KuechenRezepte.Helpers;
 using KuechenRezepte.Models;
 using KuechenRezepte.Services;
 
@@ -117,10 +118,10 @@ public class EditModel : PageModel
 
         foreach (var zutatInput in Zutaten.Where(z => !string.IsNullOrWhiteSpace(z.Name)))
         {
-            var trimmedName = zutatInput.Name!.Trim();
-            if (trimmedName.Length > 100)
+            var trimmedName = (StringHelper.TrimToLength(zutatInput.Name, 100) ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName))
             {
-                trimmedName = trimmedName[..100];
+                continue;
             }
 
             var zutat = _context.Zutaten.FirstOrDefault(z => z.Name.ToLower() == trimmedName.ToLower());
@@ -135,28 +136,18 @@ public class EditModel : PageModel
             {
                 RezeptId = Rezept.Id,
                 ZutatId = zutat.Id,
-                Menge = Truncate(zutatInput.Menge, 50),
-                Einheit = Truncate(zutatInput.Einheit, 50)
+                Menge = StringHelper.TrimToLength(zutatInput.Menge, 50),
+                Einheit = StringHelper.TrimToLength(zutatInput.Einheit, 50)
             };
 
             _context.RezeptZutaten.Add(rezeptZutat);
         }
 
+        existingRezept.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Rezept erfolgreich aktualisiert!";
         return RedirectToPage("/Index");
-    }
-
-    private static string? Truncate(string? value, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var trimmed = value.Trim();
-        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     public class ZutatInput

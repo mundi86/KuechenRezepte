@@ -35,7 +35,9 @@ public class Rezept
     [StringLength(500)]
     public string? BildPfad { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<RezeptZutat> RezeptZutaten { get; set; } = new List<RezeptZutat>();
 }
