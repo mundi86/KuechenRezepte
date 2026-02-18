@@ -1,0 +1,99 @@
+@page
+@model WochenplanModel
+@{
+    ViewData["Title"] = "Wochenplan";
+    var prevMontag = Model.Montag.AddDays(-7);
+    var nextMontag = Model.Montag.AddDays(7);
+    string[] tagNamen = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+}
+
+<div class="mb-4">
+    <div class="hero-panel d-flex align-items-center gap-3 flex-wrap">
+        <div>
+            <h1 class="h3 mb-1">Wochenplan</h1>
+            <p class="hero-sub mb-0">Plane deine Mahlzeiten eine Woche im Voraus.</p>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <a class="btn btn-outline-secondary btn-sm"
+               asp-page="/Wochenplan"
+               asp-route-datum="@prevMontag.ToString("yyyy-MM-dd")"
+               title="Vorherige Woche">&larr;</a>
+            <span class="fw-semibold px-1">KW&nbsp;@Model.KalenderWoche&nbsp;/&nbsp;@Model.Montag.Year</span>
+            <a class="btn btn-outline-secondary btn-sm"
+               asp-page="/Wochenplan"
+               asp-route-datum="@nextMontag.ToString("yyyy-MM-dd")"
+               title="Naechste Woche">&rarr;</a>
+            <a class="btn btn-outline-secondary btn-sm ms-1"
+               asp-page="/Wochenplan"
+               title="Aktuelle Woche">Heute</a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    @for (int i = 0; i < Model.Woche.Count; i++)
+    {
+        var eintrag = Model.Woche[i];
+        var isToday = eintrag.Datum == DateOnly.FromDateTime(DateTime.Today);
+        var isWeekend = i >= 5;
+        var panelClass = "content-panel h-100"
+            + (isToday ? " border-primary" : "")
+            + (isWeekend && !isToday ? " wochenplan-weekend" : "");
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="@panelClass">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fw-semibold @(isToday ? "text-primary" : isWeekend ? "text-warning-emphasis" : "")">
+                        @tagNamen[i]
+                    </span>
+                    <span class="text-muted small">@eintrag.Datum.ToString("dd.MM.")</span>
+                </div>
+
+                @if (eintrag.Mahlzeit?.Rezept != null)
+                {
+                    @if (!string.IsNullOrWhiteSpace(eintrag.Mahlzeit.Rezept.BildPfad))
+                    {
+                        <img src="@eintrag.Mahlzeit.Rezept.BildPfad"
+                             alt="@eintrag.Mahlzeit.Rezept.Name"
+                             class="wochenplan-recipe-img mb-2"
+                             onerror="this.style.display='none'" />
+                    }
+                    <p class="mb-3">
+                        <a asp-page="/Rezepte/Details"
+                           asp-route-id="@eintrag.Mahlzeit.RezeptId"
+                           class="fw-semibold text-decoration-none">
+                            @eintrag.Mahlzeit.Rezept.Name
+                        </a>
+                    </p>
+                    <form method="post" asp-page-handler="Remove">
+                        <input type="hidden" name="datum" value="@eintrag.Datum.ToString("yyyy-MM-dd")" />
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Entfernen</button>
+                    </form>
+                }
+                else
+                {
+                    @if (Model.AlleRezepte.Count == 0)
+                    {
+                        <p class="text-muted small mb-0">Noch keine Rezepte vorhanden.</p>
+                    }
+                    else
+                    {
+                        <form method="post" asp-page-handler="Assign">
+                            <input type="hidden" name="datum" value="@eintrag.Datum.ToString("yyyy-MM-dd")" />
+                            <div class="d-flex gap-2 align-items-center">
+                                <select name="rezeptId" class="form-select form-select-sm flex-grow-1" required>
+                                    <option value="" disabled selected>Rezept waehlen&hellip;</option>
+                                    @foreach (var rezept in Model.AlleRezepte)
+                                    {
+                                        <option value="@rezept.Id">@rezept.Name</option>
+                                    }
+                                </select>
+                                <button type="submit" class="btn btn-success btn-sm px-3">+</button>
+                            </div>
+                        </form>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>

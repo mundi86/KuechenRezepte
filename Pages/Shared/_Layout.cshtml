@@ -1,14 +1,16 @@
-﻿@{
+@{
     string? currentPage = ViewContext.RouteData.Values["page"]?.ToString();
     bool isIndex = currentPage == "/" || string.Equals(currentPage, "/Index", StringComparison.OrdinalIgnoreCase);
     bool isCreate = string.Equals(currentPage, "/Rezepte/Create", StringComparison.OrdinalIgnoreCase);
     bool isRandom = string.Equals(currentPage, "/Random", StringComparison.OrdinalIgnoreCase);
+    bool isWochenplan = string.Equals(currentPage, "/Wochenplan", StringComparison.OrdinalIgnoreCase);
 }
 
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="utf-8" />
+    <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})()</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - KuechenRezepte</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,6 +38,15 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(isRandom ? "active" : "")" asp-area="" asp-page="/Random">Inspiration</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(isWochenplan ? "active" : "")" asp-area="" asp-page="/Wochenplan">Wochenplan</a>
+                            </li>
+                            <li class="nav-item">
+                                <button type="button" id="theme-toggle" class="btn btn-link nav-link px-2"
+                                        title="Darkmodus umschalten" aria-label="Darkmodus umschalten">
+                                    <span id="theme-icon">&#9790;</span>
+                                </button>
                             </li>
                         </ul>
                     </div>

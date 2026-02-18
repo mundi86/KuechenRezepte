@@ -2,6 +2,7 @@
     initToast();
     initImagePickers();
     initImageLightbox();
+    initThemeToggle();
 });
 
 function initToast() {
@@ -205,6 +206,26 @@ function initImagePickers() {
         });
 
         renderList();
+    });
+}
+
+function initThemeToggle() {
+    var btn = document.getElementById('theme-toggle');
+    var icon = document.getElementById('theme-icon');
+    if (!btn || !icon) return;
+
+    function update() {
+        var theme = document.documentElement.getAttribute('data-theme') || 'light';
+        icon.innerHTML = theme === 'dark' ? '&#9728;' : '&#9790;';
+    }
+
+    update();
+    btn.addEventListener('click', function () {
+        var next = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark'
+            ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        update();
     });
 }
 

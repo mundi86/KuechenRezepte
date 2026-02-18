@@ -61,7 +61,7 @@ public class RezeptImageService
 
         if (!string.IsNullOrWhiteSpace(primaryPath))
         {
-            var normalizedPrimary = NormalizePath(primaryPath);
+            var normalizedPrimary = IsExternalPath(primaryPath) ? primaryPath : NormalizePath(primaryPath);
             if (seen.Add(normalizedPrimary))
             {
                 result.Add(normalizedPrimary);

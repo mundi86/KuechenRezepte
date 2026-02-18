@@ -34,7 +34,19 @@ app.MapRazorPages();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
+    await context.Database.EnsureCreatedAsync();
+    await context.Database.ExecuteSqlRawAsync("""
+        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Mahlzeiten' AND xtype='U')
+        CREATE TABLE Mahlzeiten (
+            Id       INT IDENTITY(1,1) PRIMARY KEY,
+            Datum    DATE NOT NULL,
+            RezeptId INT  NULL,
+            CONSTRAINT UQ_Mahlzeiten_Datum UNIQUE (Datum),
+            CONSTRAINT FK_Mahlzeiten_Rezept FOREIGN KEY (RezeptId)
+                REFERENCES Rezepte(Id) ON DELETE SET NULL
+        )
+        """);
+    await RecipeSeeder.SeedAsync(context);
 }
 
-app.Run();
+await app.RunAsync();

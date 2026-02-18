@@ -1,4 +1,4 @@
-﻿@page "/Random"
+@page "/Random"
 @model KuechenRezepte.Pages.RandomModel
 @{
     ViewData["Title"] = "Zufaelliges Rezept";
@@ -20,14 +20,17 @@
     <h2 class="mb-4">Heute kochst du:</h2>
 
     <article class="card recipe-card mx-auto" style="max-width: 620px;">
+        <a asp-page="/Rezepte/Details" asp-route-id="@Model.Rezept.Id"
+           class="stretched-link recipe-card-link" aria-label="Details zu @Model.Rezept.Name"></a>
         @if (!string.IsNullOrEmpty(Model.Rezept.BildPfad))
         {
-            <img src="@Model.Rezept.BildPfad" class="card-img-top recipe-img" alt="@Model.Rezept.Name">
+            <img src="@Model.Rezept.BildPfad" class="card-img-top recipe-img" alt="@Model.Rezept.Name"
+                 onerror="this.style.display='none'">
         }
         else
         {
             <div class="card-img-top recipe-img-placeholder d-flex align-items-center justify-content-center">
-                <span class="placeholder-symbol">No image</span>
+                <span class="placeholder-symbol">&#127859;</span>
             </div>
         }
         <div class="card-body">
@@ -47,7 +50,7 @@
                 <span class="ms-3">@Model.Rezept.Portionen Portionen</span>
             </div>
 
-            <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
+            <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap card-actions">
                 <a asp-page="/Rezepte/Details" asp-route-id="@Model.Rezept.Id" class="btn btn-primary">Details ansehen</a>
                 <a asp-page="/Random" class="btn btn-outline-secondary">Nochmal auslosen</a>
             </div>

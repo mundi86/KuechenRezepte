@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<Rezept> Rezepte { get; set; }
     public DbSet<Zutat> Zutaten { get; set; }
     public DbSet<RezeptZutat> RezeptZutaten { get; set; }
+    public DbSet<Mahlzeit> Mahlzeiten { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +43,17 @@ public class AppDbContext : DbContext
                 .WithMany(z => z.RezeptZutaten)
                 .HasForeignKey(e => e.ZutatId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Mahlzeit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Datum).IsUnique();
+            entity.Property(e => e.Datum).HasColumnType("date");
+            entity.HasOne(e => e.Rezept)
+                .WithMany()
+                .HasForeignKey(e => e.RezeptId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

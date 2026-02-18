@@ -152,6 +152,7 @@ public class CreateModel : PageModel
             if (savedPaths.Count > 0)
             {
                 Rezept.BildPfad = savedPaths[0];
+                await _context.SaveChangesAsync();
             }
         }
 
@@ -186,7 +187,7 @@ public class CreateModel : PageModel
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Rezept erfolgreich erstellt!";
-        return RedirectToPage("/Index");
+        return RedirectToPage("/Rezepte/Details", new { id = Rezept.Id });
     }
 
     private void LoadBestehendeZutaten()

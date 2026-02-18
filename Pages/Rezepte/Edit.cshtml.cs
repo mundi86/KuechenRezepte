@@ -147,7 +147,7 @@ public class EditModel : PageModel
         await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Rezept erfolgreich aktualisiert!";
-        return RedirectToPage("/Index");
+        return RedirectToPage("/Rezepte/Details", new { id = existingRezept.Id });
     }
 
     public class ZutatInput
