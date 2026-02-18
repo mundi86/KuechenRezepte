@@ -1,0 +1,111 @@
+﻿@page
+@model KuechenRezepte.Pages.IndexModel
+@{
+    ViewData["Title"] = "Alle Rezepte";
+}
+
+<section class="hero-panel mb-4">
+    <div class="row g-4 align-items-center">
+        <div class="col-lg-8">
+            <h1 class="mb-2">Deine Rezeptsammlung, modern organisiert.</h1>
+            <p class="hero-sub">Finde Gerichte schnell per Suche oder Kategorie und halte alle Zutaten und Schritte an einem Ort fest.</p>
+        </div>
+        <div class="col-lg-4 d-flex gap-2 justify-content-lg-end">
+            <a asp-page="/Rezepte/Create" class="btn btn-primary">Neues Rezept</a>
+            <a asp-page="/Random" class="btn btn-warning">Inspiration</a>
+        </div>
+    </div>
+</section>
+
+<section class="glass-panel mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-lg-6">
+            <label class="form-label">Suche</label>
+            <div class="input-group">
+                <input asp-for="SearchTerm" class="form-control" placeholder="Rezept oder Zutat eingeben" list="zutaten-suche-liste">
+                <button class="btn btn-primary" type="submit">Suchen</button>
+                @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                {
+                    <a asp-page="/Index" class="btn btn-outline-secondary">Reset</a>
+                }
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <label class="form-label">Kategorie</label>
+            <select asp-for="Kategorie" class="form-select" asp-items="Html.GetEnumSelectList<Kategorie>()">
+                <option value="">Alle Kategorien</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid">
+            <a asp-page="/Random" class="btn btn-outline-primary">Zufaelliges Rezept</a>
+        </div>
+    </form>
+</section>
+
+<datalist id="zutaten-suche-liste">
+    @foreach (var vorschlag in Model.ZutatenVorschlaege)
+    {
+        <option value="@vorschlag"></option>
+    }
+</datalist>
+
+@if (Model.Rezepte.Any())
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 stagger-grid">
+        @foreach (var rezept in Model.Rezepte)
+        {
+            <div class="col">
+                <article class="card h-100 recipe-card">
+                    <a asp-page="/Rezepte/Details" asp-route-id="@rezept.Id" class="stretched-link recipe-card-link" aria-label="Details zu @rezept.Name"></a>
+                    @if (!string.IsNullOrEmpty(rezept.BildPfad))
+                    {
+                        <img src="@rezept.BildPfad" class="card-img-top recipe-img" alt="@rezept.Name">
+                    }
+                    else
+                    {
+                        <div class="card-img-top recipe-img-placeholder d-flex align-items-center justify-content-center">
+                            <span class="placeholder-symbol">No image</span>
+                        </div>
+                    }
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                            <h5 class="card-title mb-0">@rezept.Name</h5>
+                            <span class="badge bg-secondary">@rezept.Kategorie</span>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(rezept.Beschreibung))
+                        {
+                            <p class="card-text small text-muted">@rezept.Beschreibung</p>
+                        }
+
+                        <div class="meta-strip mb-2">
+                            @if (rezept.Zubereitungszeit.HasValue)
+                            {
+                                <span>@rezept.Zubereitungszeit Min</span>
+                            }
+                            <span class="ms-2">@rezept.Portionen Portionen</span>
+                        </div>
+
+                        <div class="small text-muted mb-3">
+                            <strong>Zutaten:</strong>
+                            @string.Join(", ", rezept.RezeptZutaten.Select(rz => rz.Zutat?.Name ?? ""))
+                        </div>
+
+                        <div class="d-flex gap-2 mt-auto card-actions">
+                            <a asp-page="/Rezepte/Details" asp-route-id="@rezept.Id" class="btn btn-sm btn-primary">Details</a>
+                            <a asp-page="/Rezepte/Edit" asp-route-id="@rezept.Id" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <section class="content-panel text-center py-5">
+        <h3 class="mb-2">Keine Rezepte gefunden</h3>
+        <p class="text-muted mb-4">Lege dein erstes Rezept an und baue deine Sammlung auf.</p>
+        <a asp-page="/Rezepte/Create" class="btn btn-primary">Neues Rezept</a>
+    </section>
+}

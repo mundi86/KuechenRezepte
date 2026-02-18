@@ -1,0 +1,147 @@
+﻿@page "{id:int}"
+@model KuechenRezepte.Pages.Rezepte.EditModel
+@{
+    ViewData["Title"] = "Rezept bearbeiten";
+}
+
+<section class="content-panel">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="mb-0">Rezept bearbeiten</h1>
+        <a asp-page="/Index" class="btn btn-outline-secondary">Zurueck</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" asp-for="Rezept.Id" />
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Rezept.Name" class="form-label">Rezeptname *</label>
+            <input asp-for="Rezept.Name" class="form-control" />
+            <span asp-validation-for="Rezept.Name" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="Rezept.Kategorie" class="form-label">Kategorie</label>
+                <select asp-for="Rezept.Kategorie" class="form-select" asp-items="Html.GetEnumSelectList<Kategorie>()"></select>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label asp-for="Rezept.Portionen" class="form-label">Portionen</label>
+                <input asp-for="Rezept.Portionen" class="form-control" min="1" />
+            </div>
+            <div class="col-md-3 mb-3">
+                <label asp-for="Rezept.Zubereitungszeit" class="form-label">Zeit (Min)</label>
+                <input asp-for="Rezept.Zubereitungszeit" class="form-control" min="0" />
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Rezept.Beschreibung" class="form-label">Kurze Beschreibung</label>
+            <textarea asp-for="Rezept.Beschreibung" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Rezept.Zubereitung" class="form-label">Zubereitung</label>
+            <textarea asp-for="Rezept.Zubereitung" class="form-control" rows="5"></textarea>
+        </div>
+
+        @if (Model.GalerieBilder.Any())
+        {
+            <div class="mb-3">
+                <label class="form-label">Aktuelle Bilder</label>
+                <div class="row g-2 mb-2">
+                    @foreach (var bild in Model.GalerieBilder)
+                    {
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="image-stage p-1 h-100">
+                                <a href="@bild" class="gallery-image-link" data-full-src="@bild" data-caption="@Model.Rezept.Name">
+                                    <img src="@bild" alt="@Model.Rezept.Name" style="height: 120px; width: 100%; object-fit: cover;" class="img-thumbnail mb-0" />
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <label class="form-check-label">
+                    <input type="checkbox" name="bilderLoeschen" value="true" class="form-check-input me-1"> Alle lokalen Bilder loeschen
+                </label>
+            </div>
+        }
+
+        <div class="mb-3">
+            <label class="form-label">Neue Fotos hochladen</label>
+            <div class="image-picker" data-image-picker>
+                <div class="d-flex flex-wrap gap-2">
+                    <input type="file" name="bilder" class="form-control image-picker-input" accept=".jpg,.jpeg,.png,.webp" multiple data-image-input />
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-image-pick>Weitere Fotos waehlen</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-image-clear>Auswahl leeren</button>
+                </div>
+                <div class="image-picker-list mt-2" data-image-list></div>
+            </div>
+            <small class="text-muted">Du kannst mehrfach waehlen, ohne zu speichern. Max. 2MB pro Bild (jpg, png, webp).</small>
+        </div>
+
+        <div class="mb-4">
+            <h5>Zutaten</h5>
+            <div id="zutaten-container" class="zutaten-grid">
+                @for (int i = 0; i < Model.Zutaten.Count; i++)
+                {
+                    <div class="row g-2 mb-2 zutat-row">
+                        <div class="col-md-5">
+                            <input type="text" name="Zutaten[@i].Name" class="form-control zutat-name" value="@Model.Zutaten[i].Name" placeholder="Zutat" list="zutaten-list" />
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" name="Zutaten[@i].Menge" class="form-control" value="@Model.Zutaten[i].Menge" placeholder="Menge" />
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" name="Zutaten[@i].Einheit" class="form-control" value="@Model.Zutaten[i].Einheit" placeholder="Einheit" />
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.parentElement.remove()">X</button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addZutat()">Zutat hinzufuegen</button>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <input type="submit" value="Aenderungen speichern" class="btn btn-success" />
+            <a asp-page="/Index" class="btn btn-secondary">Abbrechen</a>
+        </div>
+    </form>
+</section>
+
+<datalist id="zutaten-list">
+    @foreach (var zutat in Model.BestehendeZutaten)
+    {
+        <option value="@zutat.Name" />
+    }
+</datalist>
+
+@section Scripts {
+    <script>
+        let zutatIndex = @Model.Zutaten.Count;
+
+        function addZutat() {
+            const container = document.getElementById('zutaten-container');
+            const row = document.createElement('div');
+            row.className = 'row g-2 mb-2 zutat-row';
+            row.innerHTML = `
+                <div class="col-md-5">
+                    <input type="text" name="Zutaten[${zutatIndex}].Name" class="form-control zutat-name" placeholder="Zutat" list="zutaten-list" />
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="Zutaten[${zutatIndex}].Menge" class="form-control" placeholder="Menge" />
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="Zutaten[${zutatIndex}].Einheit" class="form-control" placeholder="Einheit" />
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.parentElement.remove()">X</button>
+                </div>
+            `;
+            container.appendChild(row);
+            zutatIndex++;
+        }
+    </script>
+}

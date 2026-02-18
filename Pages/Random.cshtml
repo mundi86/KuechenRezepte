@@ -1,0 +1,58 @@
+﻿@page "/Random"
+@model KuechenRezepte.Pages.RandomModel
+@{
+    ViewData["Title"] = "Zufaelliges Rezept";
+}
+
+@if (Model.Rezept == null)
+{
+    <section class="content-panel">
+        <div class="alert alert-warning mb-0">
+            <h4 class="mb-2">Noch keine Rezepte vorhanden</h4>
+            <p class="mb-3">Erstelle zuerst mindestens ein Rezept, damit wir etwas auslosen koennen.</p>
+            <a asp-page="/Rezepte/Create" class="btn btn-primary">Neues Rezept erstellen</a>
+        </div>
+    </section>
+    return;
+}
+
+<section class="content-panel text-center">
+    <h2 class="mb-4">Heute kochst du:</h2>
+
+    <article class="card recipe-card mx-auto" style="max-width: 620px;">
+        @if (!string.IsNullOrEmpty(Model.Rezept.BildPfad))
+        {
+            <img src="@Model.Rezept.BildPfad" class="card-img-top recipe-img" alt="@Model.Rezept.Name">
+        }
+        else
+        {
+            <div class="card-img-top recipe-img-placeholder d-flex align-items-center justify-content-center">
+                <span class="placeholder-symbol">No image</span>
+            </div>
+        }
+        <div class="card-body">
+            <h3 class="card-title">@Model.Rezept.Name</h3>
+            <span class="badge bg-secondary">@Model.Rezept.Kategorie</span>
+
+            @if (!string.IsNullOrEmpty(Model.Rezept.Beschreibung))
+            {
+                <p class="card-text mt-3">@Model.Rezept.Beschreibung</p>
+            }
+
+            <div class="meta-strip mt-2">
+                @if (Model.Rezept.Zubereitungszeit.HasValue)
+                {
+                    <span>@Model.Rezept.Zubereitungszeit Min</span>
+                }
+                <span class="ms-3">@Model.Rezept.Portionen Portionen</span>
+            </div>
+
+            <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
+                <a asp-page="/Rezepte/Details" asp-route-id="@Model.Rezept.Id" class="btn btn-primary">Details ansehen</a>
+                <a asp-page="/Random" class="btn btn-outline-secondary">Nochmal auslosen</a>
+            </div>
+        </div>
+    </article>
+
+    <a asp-page="/Index" class="btn btn-link mt-4">Zurueck zur Uebersicht</a>
+</section>
