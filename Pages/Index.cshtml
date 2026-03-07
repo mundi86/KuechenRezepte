@@ -4,20 +4,48 @@
     ViewData["Title"] = "Alle Rezepte";
 }
 
-<section class="hero-panel mb-4">
-    <div class="row g-4 align-items-center">
-        <div class="col-lg-8">
-            <h1 class="mb-2">Deine Rezeptsammlung, modern organisiert.</h1>
-            <p class="hero-sub">Finde Gerichte schnell per Suche oder Kategorie und halte alle Zutaten und Schritte an einem Ort fest.</p>
+<section class="hero-panel home-hero mb-4">
+    <div class="home-hero-grid">
+        <div>
+            <p class="hero-kicker mb-2">KÜCHENREZEPTE ARCHIVE</p>
+            <h1 class="mb-3">Dein kulinarisches Cockpit mit Stil, Struktur und Tempo.</h1>
+            <p class="hero-sub mb-4">Suche, plane und entdecke Rezepte in einer Oberfläche, die sich wie ein Magazin und ein Tool zugleich anfühlt.</p>
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <a asp-page="/Rezepte/Create" class="btn btn-primary">Neues Rezept anlegen</a>
+                <a asp-page="/Random" class="btn btn-warning">Überrasche mich</a>
+                <a asp-page="/Wochenplan" class="btn btn-outline-secondary">Wochenplan öffnen</a>
+            </div>
+            <div class="hero-metrics">
+                <div class="hero-metric">
+                    <span class="hero-metric-value">@Model.TotalCount</span>
+                    <span class="hero-metric-label">Rezepte gesamt</span>
+                </div>
+                <div class="hero-metric">
+                    <span class="hero-metric-value">@Model.ZutatenVorschlaege.Count</span>
+                    <span class="hero-metric-label">Zutaten indexiert</span>
+                </div>
+                <div class="hero-metric">
+                    <span class="hero-metric-value">12</span>
+                    <span class="hero-metric-label">Rezepte pro Seite</span>
+                </div>
+            </div>
         </div>
-        <div class="col-lg-4 d-flex gap-2 justify-content-lg-end">
-            <a asp-page="/Rezepte/Create" class="btn btn-primary">Neues Rezept</a>
-            <a asp-page="/Random" class="btn btn-warning">Inspiration</a>
-        </div>
+        <aside class="hero-aside">
+            <div class="hero-aside-card">
+                <h3 class="h5 mb-2">Discovery Flow</h3>
+                <p class="small text-muted mb-3">Von der Idee bis zur Einkaufsliste in wenigen Klicks.</p>
+                <ul class="hero-flow mb-0">
+                    <li><span>1</span> Suche nach Geschmack oder Zutat</li>
+                    <li><span>2</span> Speichere Favoriten als Wochenplan</li>
+                    <li><span>3</span> Erzeuge automatisch die Einkaufsliste</li>
+                </ul>
+            </div>
+            <div class="hero-signature" aria-hidden="true"></div>
+        </aside>
     </div>
 </section>
 
-<section class="glass-panel mb-4">
+<section class="glass-panel discovery-panel mb-4">
     <form method="get" class="row g-3 align-items-end">
         <div class="col-lg-6">
             <label class="form-label">Suche</label>
@@ -37,7 +65,7 @@
             </select>
         </div>
         <div class="col-lg-2 d-grid">
-            <a asp-page="/Random" class="btn btn-outline-primary">Zufaelliges Rezept</a>
+            <a asp-page="/Random" class="btn btn-outline-primary">Zufälliges Rezept</a>
         </div>
     </form>
 </section>
@@ -51,6 +79,14 @@
 
 @if (Model.Rezepte.Any())
 {
+    <section class="mb-3 d-flex justify-content-between align-items-end gap-3 flex-wrap">
+        <div>
+            <h2 class="h4 mb-1">Aktuelle Rezeptauswahl</h2>
+            <p class="text-muted mb-0">Kuratiert nach Suchbegriff, Kategorie und Veröffentlichungsdatum.</p>
+        </div>
+        <span class="badge bg-secondary px-3 py-2">Seite @Model.PageNumber von @Math.Max(1, Model.TotalPages)</span>
+    </section>
+
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 stagger-grid">
         @foreach (var rezept in Model.Rezepte)
         {

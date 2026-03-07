@@ -1,6 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using KuechenRezepte.Data;
 using KuechenRezepte.Helpers;
 using KuechenRezepte.Models;
 using KuechenRezepte.Services;
@@ -9,28 +8,28 @@ namespace KuechenRezepte.Pages.Rezepte;
 
 public class CreateModel : PageModel
 {
-    private readonly AppDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly RezeptImageService _imageService;
     private readonly ChefkochImporter _importer;
+    private readonly RecipeCommandService _recipeCommandService;
+    private readonly RecipeQueryService _recipeQueryService;
 
     public CreateModel(
-        AppDbContext context,
         IHttpClientFactory httpClientFactory,
-        RezeptImageService imageService,
-        ChefkochImporter importer)
+        ChefkochImporter importer,
+        RecipeCommandService recipeCommandService,
+        RecipeQueryService recipeQueryService)
     {
-        _context = context;
         _httpClientFactory = httpClientFactory;
-        _imageService = imageService;
         _importer = importer;
+        _recipeCommandService = recipeCommandService;
+        _recipeQueryService = recipeQueryService;
     }
 
     [BindProperty]
     public Rezept Rezept { get; set; } = new();
 
     [BindProperty]
-    public List<ChefkochImporter.ZutatInput> Zutaten { get; set; } = new() { new() };
+    public List<RecipeIngredientInput> Zutaten { get; set; } = new() { new() };
 
     [BindProperty]
     public string? ImportUrl { get; set; }
@@ -41,15 +40,15 @@ public class CreateModel : PageModel
 
     public bool ImportSucceeded { get; set; }
 
-    public IActionResult OnGet()
+    public async Task<IActionResult> OnGetAsync()
     {
-        LoadBestehendeZutaten();
+        await LoadBestehendeZutatenAsync();
         return Page();
     }
 
     public async Task<IActionResult> OnPostImportAsync()
     {
-        LoadBestehendeZutaten();
+        await LoadBestehendeZutatenAsync();
 
         if (string.IsNullOrWhiteSpace(ImportUrl))
         {
@@ -60,7 +59,7 @@ public class CreateModel : PageModel
 
         if (!TryValidateChefkochUrl(ImportUrl, out var recipeUri))
         {
-            ImportStatusMessage = "Bitte eine gueltige Chefkoch-URL verwenden.";
+            ImportStatusMessage = "Bitte eine gültige Chefkoch-URL verwenden.";
             ImportSucceeded = false;
             return Page();
         }
@@ -97,11 +96,18 @@ public class CreateModel : PageModel
             Rezept.BildPfad = StringHelper.TrimToLength(imported.ImageUrl, 500);
         }
 
-        Zutaten = imported.Ingredients.Count > 0 ? imported.Ingredients : [new()];
+        Zutaten = imported.Ingredients.Count > 0
+            ? imported.Ingredients.Select(i => new RecipeIngredientInput
+            {
+                Name = i.Name,
+                Menge = i.Menge,
+                Einheit = i.Einheit
+            }).ToList()
+            : [new()];
 
         ImportUrl = recipeUri!.ToString();
         ImportSucceeded = true;
-        ImportStatusMessage = $"Import erfolgreich. {Zutaten.Count} Zutaten wurden uebernommen.";
+        ImportStatusMessage = $"Import erfolgreich. {Zutaten.Count} Zutaten wurden übernommen.";
 
         // ModelState has precedence in Razor fields; clear it so imported values are displayed.
         ModelState.Clear();
@@ -109,90 +115,47 @@ public class CreateModel : PageModel
         return Page();
     }
 
-    public Task<IActionResult> OnPostAsync(List<IFormFile>? bilder)
+    public async Task<IActionResult> OnPostAsync(List<IFormFile>? bilder)
     {
-        return SaveRecipeAsync(bilder);
+        return await SaveRecipeAsync(bilder);
     }
 
-    public Task<IActionResult> OnPostSaveAsync(List<IFormFile>? bilder)
+    public async Task<IActionResult> OnPostSaveAsync(List<IFormFile>? bilder)
     {
-        return SaveRecipeAsync(bilder);
+        return await SaveRecipeAsync(bilder);
     }
 
     private async Task<IActionResult> SaveRecipeAsync(List<IFormFile>? bilder)
     {
         if (!ModelState.IsValid)
         {
-            LoadBestehendeZutaten();
+            await LoadBestehendeZutatenAsync();
             return Page();
         }
 
-        var validImages = (bilder ?? []).Where(b => b.Length > 0).ToList();
-        foreach (var image in validImages)
-        {
-            if (!_imageService.IsValidImage(image, out var error))
-            {
-                ModelState.AddModelError("bilder", error ?? "Ungueltiges Bild");
-                LoadBestehendeZutaten();
-                return Page();
-            }
-        }
-
-        Rezept.Name = (StringHelper.TrimToLength(Rezept.Name, 200) ?? string.Empty).Trim();
+        Rezept.Name = StringHelper.TrimToLength(Rezept.Name, 200) ?? string.Empty;
         Rezept.Beschreibung = StringHelper.TrimToLength(Rezept.Beschreibung, 2000);
-        Rezept.Zubereitung = Rezept.Zubereitung?.Trim();
         Rezept.BildPfad = StringHelper.TrimToLength(Rezept.BildPfad, 500);
 
-        _context.Rezepte.Add(Rezept);
-        await _context.SaveChangesAsync();
+        var result = await _recipeCommandService.CreateAsync(
+            Rezept,
+            Zutaten,
+            bilder ?? []);
 
-        if (validImages.Count > 0)
+        if (!result.Success || result.RecipeId == null)
         {
-            var savedPaths = await _imageService.SaveImagesAsync(Rezept.Id, validImages);
-            if (savedPaths.Count > 0)
-            {
-                Rezept.BildPfad = savedPaths[0];
-                await _context.SaveChangesAsync();
-            }
+            ModelState.AddModelError("bilder", result.Error ?? "Speichern fehlgeschlagen.");
+            await LoadBestehendeZutatenAsync();
+            return Page();
         }
-
-        foreach (var zutatInput in Zutaten.Where(z => !string.IsNullOrWhiteSpace(z.Name)))
-        {
-            var trimmedName = (StringHelper.TrimToLength(zutatInput.Name, 100) ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(trimmedName))
-            {
-                continue;
-            }
-
-            var zutat = _context.Zutaten.FirstOrDefault(z => z.Name.ToLower() == trimmedName.ToLower());
-
-            if (zutat == null)
-            {
-                zutat = new Zutat { Name = trimmedName };
-                _context.Zutaten.Add(zutat);
-                await _context.SaveChangesAsync();
-            }
-
-            var rezeptZutat = new RezeptZutat
-            {
-                RezeptId = Rezept.Id,
-                ZutatId = zutat.Id,
-                Menge = StringHelper.TrimToLength(zutatInput.Menge?.Trim(), 50),
-                Einheit = StringHelper.TrimToLength(zutatInput.Einheit?.Trim(), 50)
-            };
-
-            _context.RezeptZutaten.Add(rezeptZutat);
-        }
-
-        await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Rezept erfolgreich erstellt!";
-        return RedirectToPage("/Rezepte/Details", new { id = Rezept.Id });
+        return RedirectToPage("/Rezepte/Details", new { id = result.RecipeId.Value });
     }
 
-    private void LoadBestehendeZutaten()
+    private async Task LoadBestehendeZutatenAsync()
     {
-        BestehendeZutaten = _context.Zutaten.OrderBy(z => z.Name).ToList();
+        BestehendeZutaten = await _recipeQueryService.GetAllIngredientsAsync();
     }
 
     private static bool TryValidateChefkochUrl(string url, out Uri? uri)

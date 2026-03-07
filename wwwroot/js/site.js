@@ -117,7 +117,7 @@ function initImagePickers() {
             if (groups.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'image-picker-empty';
-                empty.textContent = 'Noch keine neuen Bilder ausgewaehlt.';
+                empty.textContent = 'Noch keine neuen Bilder ausgewählt.';
                 list.appendChild(empty);
                 return;
             }
@@ -129,7 +129,7 @@ function initImagePickers() {
 
                 const title = group.files.length === 1
                     ? group.files[0].name
-                    : group.files.length + ' Dateien ausgewaehlt';
+                    : group.files.length + ' Dateien ausgewählt';
 
                 const row = document.createElement('div');
                 row.className = 'image-chip';

@@ -1,16 +1,15 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace KuechenRezepte.Models;
 
 public enum Kategorie
 {
-    Frühstück,
+    Fruehstueck,
     Mittagessen,
     Abendessen,
     Dessert,
     Snack,
-    Getränk
+    Getraenk
 }
 
 public class Rezept

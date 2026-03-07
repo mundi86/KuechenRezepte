@@ -1,8 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
-using KuechenRezepte.Data;
-using KuechenRezepte.Helpers;
 using KuechenRezepte.Models;
 using KuechenRezepte.Services;
 
@@ -10,12 +7,17 @@ namespace KuechenRezepte.Pages.Rezepte;
 
 public class EditModel : PageModel
 {
-    private readonly AppDbContext _context;
+    private readonly RecipeQueryService _recipeQueryService;
+    private readonly RecipeCommandService _recipeCommandService;
     private readonly RezeptImageService _imageService;
 
-    public EditModel(AppDbContext context, RezeptImageService imageService)
+    public EditModel(
+        RecipeQueryService recipeQueryService,
+        RecipeCommandService recipeCommandService,
+        RezeptImageService imageService)
     {
-        _context = context;
+        _recipeQueryService = recipeQueryService;
+        _recipeCommandService = recipeCommandService;
         _imageService = imageService;
     }
 
@@ -23,7 +25,7 @@ public class EditModel : PageModel
     public Rezept Rezept { get; set; } = null!;
 
     [BindProperty]
-    public List<ZutatInput> Zutaten { get; set; } = new();
+    public List<RecipeIngredientInput> Zutaten { get; set; } = new();
 
     public List<Zutat> BestehendeZutaten { get; set; } = new();
 
@@ -31,20 +33,15 @@ public class EditModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
-        var rezept = await _context.Rezepte
-            .Include(r => r.RezeptZutaten)
-            .ThenInclude(rz => rz.Zutat)
-            .FirstOrDefaultAsync(r => r.Id == id);
-
+        var rezept = await _recipeQueryService.GetByIdWithIngredientsAsync(id);
         if (rezept == null)
         {
             return NotFound();
         }
 
         Rezept = rezept;
-        Zutaten = Rezept.RezeptZutaten.Select(rz => new ZutatInput
+        Zutaten = Rezept.RezeptZutaten.Select(rz => new RecipeIngredientInput
         {
-            Id = rz.Id,
             Name = rz.Zutat?.Name ?? string.Empty,
             Menge = rz.Menge,
             Einheit = rz.Einheit
@@ -52,109 +49,39 @@ public class EditModel : PageModel
 
         if (Zutaten.Count == 0)
         {
-            Zutaten.Add(new ZutatInput());
+            Zutaten.Add(new RecipeIngredientInput());
         }
 
-        BestehendeZutaten = _context.Zutaten.OrderBy(z => z.Name).ToList();
+        BestehendeZutaten = await _recipeQueryService.GetAllIngredientsAsync();
         GalerieBilder = _imageService.GetImagePaths(Rezept.Id, Rezept.BildPfad);
 
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync(List<IFormFile>? bilder, bool bilderLoeschen = false)
+    public async Task<IActionResult> OnPostAsync(List<IFormFile>? bilder, bool bilderLöschen = false)
     {
-        var existingRezept = await _context.Rezepte.FindAsync(Rezept.Id);
-        if (existingRezept == null)
-        {
-            return NotFound();
-        }
-
         if (!ModelState.IsValid)
         {
-            BestehendeZutaten = _context.Zutaten.OrderBy(z => z.Name).ToList();
-            GalerieBilder = _imageService.GetImagePaths(existingRezept.Id, existingRezept.BildPfad);
+            BestehendeZutaten = await _recipeQueryService.GetAllIngredientsAsync();
+            GalerieBilder = _imageService.GetImagePaths(Rezept.Id, Rezept.BildPfad);
             return Page();
         }
 
-        var newImages = (bilder ?? []).Where(b => b.Length > 0).ToList();
-        foreach (var image in newImages)
+        var result = await _recipeCommandService.UpdateAsync(
+            Rezept,
+            Zutaten,
+            bilder ?? [],
+            bilderLöschen);
+
+        if (!result.Success)
         {
-            if (!_imageService.IsValidImage(image, out var error))
-            {
-                ModelState.AddModelError("bilder", error ?? "Ungueltiges Bild");
-                BestehendeZutaten = _context.Zutaten.OrderBy(z => z.Name).ToList();
-                GalerieBilder = _imageService.GetImagePaths(existingRezept.Id, existingRezept.BildPfad);
-                return Page();
-            }
+            ModelState.AddModelError("bilder", result.Error ?? "Speichern fehlgeschlagen.");
+            BestehendeZutaten = await _recipeQueryService.GetAllIngredientsAsync();
+            GalerieBilder = _imageService.GetImagePaths(Rezept.Id, Rezept.BildPfad);
+            return Page();
         }
-
-        if (bilderLoeschen)
-        {
-            _imageService.DeleteAllLocalImages(existingRezept.Id, existingRezept.BildPfad);
-            existingRezept.BildPfad = null;
-        }
-
-        if (newImages.Count > 0)
-        {
-            var savedPaths = await _imageService.SaveImagesAsync(existingRezept.Id, newImages);
-            if (savedPaths.Count > 0 &&
-                (string.IsNullOrWhiteSpace(existingRezept.BildPfad) || _imageService.IsExternalPath(existingRezept.BildPfad) || bilderLoeschen))
-            {
-                existingRezept.BildPfad = savedPaths[0];
-            }
-        }
-
-        existingRezept.Name = (Rezept.Name ?? string.Empty).Trim();
-        existingRezept.Kategorie = Rezept.Kategorie;
-        existingRezept.Portionen = Rezept.Portionen;
-        existingRezept.Zubereitungszeit = Rezept.Zubereitungszeit;
-        existingRezept.Beschreibung = Rezept.Beschreibung?.Trim();
-        existingRezept.Zubereitung = Rezept.Zubereitung?.Trim();
-
-        var existingRz = await _context.RezeptZutaten
-            .Where(rz => rz.RezeptId == Rezept.Id)
-            .ToListAsync();
-        _context.RezeptZutaten.RemoveRange(existingRz);
-
-        foreach (var zutatInput in Zutaten.Where(z => !string.IsNullOrWhiteSpace(z.Name)))
-        {
-            var trimmedName = (StringHelper.TrimToLength(zutatInput.Name, 100) ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(trimmedName))
-            {
-                continue;
-            }
-
-            var zutat = _context.Zutaten.FirstOrDefault(z => z.Name.ToLower() == trimmedName.ToLower());
-            if (zutat == null)
-            {
-                zutat = new Zutat { Name = trimmedName };
-                _context.Zutaten.Add(zutat);
-                await _context.SaveChangesAsync();
-            }
-
-            var rezeptZutat = new RezeptZutat
-            {
-                RezeptId = Rezept.Id,
-                ZutatId = zutat.Id,
-                Menge = StringHelper.TrimToLength(zutatInput.Menge, 50),
-                Einheit = StringHelper.TrimToLength(zutatInput.Einheit, 50)
-            };
-
-            _context.RezeptZutaten.Add(rezeptZutat);
-        }
-
-        existingRezept.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
 
         TempData["SuccessMessage"] = "Rezept erfolgreich aktualisiert!";
-        return RedirectToPage("/Rezepte/Details", new { id = existingRezept.Id });
-    }
-
-    public class ZutatInput
-    {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public string? Menge { get; set; }
-        public string? Einheit { get; set; }
+        return RedirectToPage("/Rezepte/Details", new { id = Rezept.Id });
     }
 }

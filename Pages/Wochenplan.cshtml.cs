@@ -1,19 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
-using System.Globalization;
-using KuechenRezepte.Data;
 using KuechenRezepte.Models;
+using KuechenRezepte.Services;
 
 namespace KuechenRezepte.Pages;
 
 public class WochenplanModel : PageModel
 {
-    private readonly AppDbContext _context;
+    private readonly MealPlanService _mealPlanService;
 
-    public WochenplanModel(AppDbContext context)
+    public WochenplanModel(MealPlanService mealPlanService)
     {
-        _context = context;
+        _mealPlanService = mealPlanService;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -28,74 +26,32 @@ public class WochenplanModel : PageModel
 
     public async Task OnGetAsync()
     {
-        Montag = Datum == default ? AktuellerMontag() : MontaguDerWoche(Datum);
-        await LadeWocheAsync();
-    }
-
-    public async Task<IActionResult> OnPostAssignAsync(DateOnly datum, int rezeptId)
-    {
-        var mahlzeit = await _context.Mahlzeiten.FirstOrDefaultAsync(m => m.Datum == datum);
-        if (mahlzeit == null)
-        {
-            mahlzeit = new Mahlzeit { Datum = datum };
-            _context.Mahlzeiten.Add(mahlzeit);
-        }
-
-        mahlzeit.RezeptId = rezeptId;
-        await _context.SaveChangesAsync();
-
-        var monday = MontaguDerWoche(datum);
-        return RedirectToPage(new { datum = monday.ToString("yyyy-MM-dd") });
-    }
-
-    public async Task<IActionResult> OnPostRemoveAsync(DateOnly datum)
-    {
-        var mahlzeit = await _context.Mahlzeiten.FirstOrDefaultAsync(m => m.Datum == datum);
-        if (mahlzeit != null)
-        {
-            _context.Mahlzeiten.Remove(mahlzeit);
-            await _context.SaveChangesAsync();
-        }
-
-        var monday = MontaguDerWoche(datum);
-        return RedirectToPage(new { datum = monday.ToString("yyyy-MM-dd") });
-    }
-
-    private async Task LadeWocheAsync()
-    {
-        var sonntag = Montag.AddDays(6);
-        KalenderWoche = ISOWeek.GetWeekOfYear(Montag.ToDateTime(TimeOnly.MinValue));
-
-        var mahlzeiten = await _context.Mahlzeiten
-            .Include(m => m.Rezept)
-            .Where(m => m.Datum >= Montag && m.Datum <= sonntag)
-            .ToListAsync();
-
-        AlleRezepte = await _context.Rezepte
-            .OrderBy(r => r.Name)
-            .ToListAsync();
-
+        var result = await _mealPlanService.GetWeekAsync(Datum);
+        Montag = result.Montag;
+        KalenderWoche = result.KalenderWoche;
+        AlleRezepte = result.AlleRezepte;
         Woche = Enumerable.Range(0, 7)
             .Select(i =>
             {
                 var tag = Montag.AddDays(i);
-                var mahlzeit = mahlzeiten.FirstOrDefault(m => m.Datum == tag);
+                var mahlzeit = result.Mahlzeiten.FirstOrDefault(m => m.Datum == tag);
                 return new TagEintrag(tag, mahlzeit);
             })
             .ToList();
     }
 
-    private static DateOnly AktuellerMontag()
+    public async Task<IActionResult> OnPostAssignAsync(DateOnly datum, int rezeptId)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        return MontaguDerWoche(today);
+        await _mealPlanService.AssignAsync(datum, rezeptId);
+        var monday = MealPlanService.MontagDerWoche(datum);
+        return RedirectToPage(new { datum = monday.ToString("yyyy-MM-dd") });
     }
 
-    public static DateOnly MontaguDerWoche(DateOnly datum)
+    public async Task<IActionResult> OnPostRemoveAsync(DateOnly datum)
     {
-        var dayOfWeek = (int)datum.DayOfWeek;
-        var daysFromMonday = dayOfWeek == 0 ? 6 : dayOfWeek - 1;
-        return datum.AddDays(-daysFromMonday);
+        await _mealPlanService.RemoveAsync(datum);
+        var monday = MealPlanService.MontagDerWoche(datum);
+        return RedirectToPage(new { datum = monday.ToString("yyyy-MM-dd") });
     }
 
     public record TagEintrag(DateOnly Datum, Mahlzeit? Mahlzeit);

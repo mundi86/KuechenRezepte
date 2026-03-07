@@ -1,24 +1,24 @@
 ﻿@page "{id:int}"
 @model KuechenRezepte.Pages.Rezepte.DeleteModel
 @{
-    ViewData["Title"] = "Rezept loeschen";
+    ViewData["Title"] = "Rezept löschen";
 }
 
 @if (Model.Rezept == null)
 {
     <section class="content-panel">
         <div class="alert alert-warning mb-0">Rezept nicht gefunden.</div>
-        <a asp-page="/Index" class="btn btn-secondary mt-3">Zurueck</a>
+        <a asp-page="/Index" class="btn btn-secondary mt-3">Zurück</a>
     </section>
     return;
 }
 
 <section class="content-panel">
-    <h1 class="mb-3">Rezept loeschen</h1>
+    <h1 class="mb-3">Rezept löschen</h1>
 
     <div class="alert alert-danger">
-        <h4 class="mb-2">Dieses Rezept wirklich loeschen?</h4>
-        <p class="mb-0">Diese Aktion kann nicht rueckgaengig gemacht werden.</p>
+        <h4 class="mb-2">Dieses Rezept wirklich löschen?</h4>
+        <p class="mb-0">Diese Aktion kann nicht rückgängig gemacht werden.</p>
     </div>
 
     <article class="card recipe-card mb-3">
@@ -31,7 +31,7 @@
 
     <form method="post" class="d-flex gap-2 flex-wrap">
         <input type="hidden" asp-for="Rezept.Id" />
-        <input type="submit" value="Ja, loeschen" class="btn btn-danger" />
+        <input type="submit" value="Ja, löschen" class="btn btn-danger" />
         <a asp-page="/Index" class="btn btn-secondary">Abbrechen</a>
     </form>
 </section>

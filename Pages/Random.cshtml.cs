@@ -1,38 +1,22 @@
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
-using KuechenRezepte.Data;
 using KuechenRezepte.Models;
+using KuechenRezepte.Services;
 
 namespace KuechenRezepte.Pages;
 
 public class RandomModel : PageModel
 {
-    private readonly AppDbContext _context;
+    private readonly RecipeQueryService _recipeQueryService;
 
-    public RandomModel(AppDbContext context)
+    public RandomModel(RecipeQueryService recipeQueryService)
     {
-        _context = context;
+        _recipeQueryService = recipeQueryService;
     }
 
     public Rezept? Rezept { get; set; }
 
     public async Task OnGetAsync()
     {
-        var count = await _context.Rezepte.CountAsync();
-        
-        if (count == 0)
-        {
-            Rezept = null;
-            return;
-        }
-
-        var skip = Random.Shared.Next(count);
-        
-        Rezept = await _context.Rezepte
-            .Include(r => r.RezeptZutaten)
-            .ThenInclude(rz => rz.Zutat)
-            .Skip(skip)
-            .FirstOrDefaultAsync();
+        Rezept = await _recipeQueryService.GetRandomAsync();
     }
 }

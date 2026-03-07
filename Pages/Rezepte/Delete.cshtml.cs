@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
-using KuechenRezepte.Data;
 using KuechenRezepte.Models;
 using KuechenRezepte.Services;
 
@@ -9,13 +7,13 @@ namespace KuechenRezepte.Pages.Rezepte;
 
 public class DeleteModel : PageModel
 {
-    private readonly AppDbContext _context;
-    private readonly RezeptImageService _imageService;
+    private readonly RecipeQueryService _recipeQueryService;
+    private readonly RecipeCommandService _recipeCommandService;
 
-    public DeleteModel(AppDbContext context, RezeptImageService imageService)
+    public DeleteModel(RecipeQueryService recipeQueryService, RecipeCommandService recipeCommandService)
     {
-        _context = context;
-        _imageService = imageService;
+        _recipeQueryService = recipeQueryService;
+        _recipeCommandService = recipeCommandService;
     }
 
     [BindProperty]
@@ -23,11 +21,7 @@ public class DeleteModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
-        Rezept = await _context.Rezepte
-            .Include(r => r.RezeptZutaten)
-            .ThenInclude(rz => rz.Zutat)
-            .FirstOrDefaultAsync(r => r.Id == id);
-
+        Rezept = await _recipeQueryService.GetByIdWithIngredientsAsync(id);
         if (Rezept == null)
         {
             return NotFound();
@@ -38,23 +32,13 @@ public class DeleteModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(int id)
     {
-        var rezept = await _context.Rezepte.FindAsync(id);
-        if (rezept == null)
+        var deleted = await _recipeCommandService.DeleteAsync(id);
+        if (!deleted)
         {
             return NotFound();
         }
 
-        _imageService.DeleteAllLocalImages(rezept.Id, rezept.BildPfad);
-
-        var rezeptZutaten = await _context.RezeptZutaten
-            .Where(rz => rz.RezeptId == id)
-            .ToListAsync();
-        _context.RezeptZutaten.RemoveRange(rezeptZutaten);
-
-        _context.Rezepte.Remove(rezept);
-        await _context.SaveChangesAsync();
-
-        TempData["SuccessMessage"] = "Rezept erfolgreich geloescht!";
+        TempData["SuccessMessage"] = "Rezept erfolgreich Gelöscht!";
         return RedirectToPage("/Index");
     }
 }

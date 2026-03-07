@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using KuechenRezepte.Services;
@@ -7,11 +6,10 @@ namespace KuechenRezepte.Tests;
 
 public class RezeptImageServiceTests
 {
-    private static RezeptImageService CreateService(string webRootPath = "C:\\wwwroot")
+    private static RezeptImageService CreateService()
     {
-        var envMock = new Mock<IWebHostEnvironment>();
-        envMock.Setup(e => e.WebRootPath).Returns(webRootPath);
-        return new RezeptImageService(envMock.Object);
+        var storageMock = new Mock<IImageStorage>();
+        return new RezeptImageService(storageMock.Object);
     }
 
     private static IFormFile CreateFormFile(string fileName, long sizeBytes, string contentType = "image/jpeg")

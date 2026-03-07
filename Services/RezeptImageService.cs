@@ -7,11 +7,11 @@ public class RezeptImageService
     private static readonly string[] AllowedTypes = [".jpg", ".jpeg", ".png", ".webp"];
     private const long MaxImageBytes = 2 * 1024 * 1024;
 
-    private readonly IWebHostEnvironment _env;
+    private readonly IImageStorage _storage;
 
-    public RezeptImageService(IWebHostEnvironment env)
+    public RezeptImageService(IImageStorage storage)
     {
-        _env = env;
+        _storage = storage;
     }
 
     public bool IsValidImage(IFormFile file, out string? error)
@@ -34,19 +34,21 @@ public class RezeptImageService
         return true;
     }
 
-    public async Task<List<string>> SaveImagesAsync(int rezeptId, IEnumerable<IFormFile> files)
+    public async Task<List<string>> SaveImagesAsync(
+        int rezeptId,
+        IEnumerable<IFormFile> files,
+        CancellationToken cancellationToken = default)
     {
         var result = new List<string>();
-        var uploadsPath = EnsureUploadsDirectory();
 
         foreach (var file in files.Where(f => f.Length > 0))
         {
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             var fileName = $"rezept-{rezeptId}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{ext}";
-            var filePath = Path.Combine(uploadsPath, fileName);
+            var relativePath = $"uploads/{fileName}";
 
-            await using var stream = new FileStream(filePath, FileMode.Create);
-            await file.CopyToAsync(stream);
+            await using var stream = file.OpenReadStream();
+            await _storage.SaveAsync(relativePath, stream, cancellationToken);
 
             result.Add($"/uploads/{fileName}");
         }
@@ -68,13 +70,9 @@ public class RezeptImageService
             }
         }
 
-        var uploadsPath = EnsureUploadsDirectory();
         var pattern = $"rezept-{rezeptId}-*.*";
-        var localImages = Directory.GetFiles(uploadsPath, pattern)
-            .Select(Path.GetFileName)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => $"/uploads/{name}")
-            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase);
+        var localImages = _storage.ListFiles("uploads", pattern)
+            .Select(path => NormalizePath($"/{path}"));
 
         foreach (var path in localImages)
         {
@@ -92,37 +90,34 @@ public class RezeptImageService
     {
         DeleteLocalImageIfPresent(primaryPath);
 
-        var uploadsPath = EnsureUploadsDirectory();
         var pattern = $"rezept-{rezeptId}-*.*";
-
-        foreach (var file in Directory.GetFiles(uploadsPath, pattern))
+        var files = _storage.ListFiles("uploads", pattern);
+        foreach (var file in files)
         {
-            if (File.Exists(file))
-            {
-                File.Delete(file);
-            }
+            _storage.Delete(file);
         }
     }
 
     public void DeleteLocalImageIfPresent(string? imagePath)
     {
         var localPath = ResolveLocalUploadPath(imagePath);
-        if (localPath != null && File.Exists(localPath))
+        if (localPath != null && _storage.Exists(localPath))
         {
-            File.Delete(localPath);
+            _storage.Delete(localPath);
+        }
+    }
+
+    public void DeleteLocalImages(IEnumerable<string?> imagePaths)
+    {
+        foreach (var imagePath in imagePaths)
+        {
+            DeleteLocalImageIfPresent(imagePath);
         }
     }
 
     public bool IsExternalPath(string? imagePath)
     {
         return Uri.TryCreate(imagePath, UriKind.Absolute, out _);
-    }
-
-    private string EnsureUploadsDirectory()
-    {
-        var uploadsPath = Path.Combine(_env.WebRootPath, "uploads");
-        Directory.CreateDirectory(uploadsPath);
-        return uploadsPath;
     }
 
     private string? ResolveLocalUploadPath(string? imagePath)
@@ -143,18 +138,7 @@ public class RezeptImageService
             return null;
         }
 
-        try
-        {
-            var relativePath = normalized.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            var fullPath = Path.GetFullPath(Path.Combine(_env.WebRootPath, relativePath));
-            var uploadsRoot = Path.GetFullPath(Path.Combine(_env.WebRootPath, "uploads"));
-
-            return fullPath.StartsWith(uploadsRoot, StringComparison.OrdinalIgnoreCase) ? fullPath : null;
-        }
-        catch
-        {
-            return null;
-        }
+        return normalized.TrimStart('/');
     }
 
     private static string NormalizePath(string path)

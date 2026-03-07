@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using KuechenRezepte.Models;
 
 namespace KuechenRezepte.Data;
@@ -20,7 +20,9 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Kategorie).HasConversion<string>();
+            entity.Property(e => e.Kategorie).HasConversion(
+                v => KategorieToStorage(v),
+                v => KategorieFromStorage(v));
         });
 
         modelBuilder.Entity<Zutat>(entity =>
@@ -55,5 +57,40 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.RezeptId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
+    }
+
+    private static string KategorieToStorage(Kategorie value)
+    {
+        return value switch
+        {
+            Kategorie.Fruehstueck => "Fruehstueck",
+            Kategorie.Mittagessen => "Mittagessen",
+            Kategorie.Abendessen => "Abendessen",
+            Kategorie.Dessert => "Dessert",
+            Kategorie.Snack => "Snack",
+            Kategorie.Getraenk => "Getraenk",
+            _ => "Mittagessen"
+        };
+    }
+
+    private static Kategorie KategorieFromStorage(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "fruehstueck" => Kategorie.Fruehstueck,
+            "fruhstuck" => Kategorie.Fruehstueck,
+            "fr\u00fchst\u00fcck" => Kategorie.Fruehstueck,
+            "fr\u00c3\u00bchst\u00c3\u00bcck" => Kategorie.Fruehstueck,
+            "mittagessen" => Kategorie.Mittagessen,
+            "abendessen" => Kategorie.Abendessen,
+            "dessert" => Kategorie.Dessert,
+            "snack" => Kategorie.Snack,
+            "getraenk" => Kategorie.Getraenk,
+            "getrank" => Kategorie.Getraenk,
+            "getr\u00e4nk" => Kategorie.Getraenk,
+            "getr\u00c3\u00a4nk" => Kategorie.Getraenk,
+            _ => Kategorie.Mittagessen
+        };
     }
 }

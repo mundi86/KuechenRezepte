@@ -1,4 +1,4 @@
-@page
+﻿@page
 @model WochenplanModel
 @{
     ViewData["Title"] = "Wochenplan";
@@ -14,6 +14,10 @@
             <p class="hero-sub mb-0">Plane deine Mahlzeiten eine Woche im Voraus.</p>
         </div>
         <div class="ms-auto d-flex align-items-center gap-2">
+            <a class="btn btn-primary btn-sm"
+               asp-page="/Einkaufsliste"
+               asp-route-datum="@Model.Montag.ToString("yyyy-MM-dd")"
+               title="Einkaufsliste dieser Woche">Einkaufsliste</a>
             <a class="btn btn-outline-secondary btn-sm"
                asp-page="/Wochenplan"
                asp-route-datum="@prevMontag.ToString("yyyy-MM-dd")"
@@ -22,7 +26,7 @@
             <a class="btn btn-outline-secondary btn-sm"
                asp-page="/Wochenplan"
                asp-route-datum="@nextMontag.ToString("yyyy-MM-dd")"
-               title="Naechste Woche">&rarr;</a>
+               title="Nächste Woche">&rarr;</a>
             <a class="btn btn-outline-secondary btn-sm ms-1"
                asp-page="/Wochenplan"
                title="Aktuelle Woche">Heute</a>
@@ -82,7 +86,7 @@
                             <input type="hidden" name="datum" value="@eintrag.Datum.ToString("yyyy-MM-dd")" />
                             <div class="d-flex gap-2 align-items-center">
                                 <select name="rezeptId" class="form-select form-select-sm flex-grow-1" required>
-                                    <option value="" disabled selected>Rezept waehlen&hellip;</option>
+                                    <option value="" disabled selected>Rezept wählen&hellip;</option>
                                     @foreach (var rezept in Model.AlleRezepte)
                                     {
                                         <option value="@rezept.Id">@rezept.Name</option>

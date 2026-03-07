@@ -1,0 +1,216 @@
+﻿@page
+@model KuechenRezepte.Pages.EinkaufslisteModel
+@{
+    ViewData["Title"] = "Einkaufsliste";
+    var prevMontag = Model.Montag.AddDays(-7);
+    var nextMontag = Model.Montag.AddDays(7);
+}
+
+<div class="mb-4">
+    <div class="hero-panel d-flex align-items-center gap-3 flex-wrap">
+        <div>
+            <h1 class="h3 mb-1">Einkaufsliste</h1>
+            <p class="hero-sub mb-0">Automatisch aus deinem Wochenplan zusammengestellt.</p>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-2 no-print">
+            <a class="btn btn-outline-secondary btn-sm"
+               asp-page="/Einkaufsliste"
+               asp-route-datum="@prevMontag.ToString("yyyy-MM-dd")"
+               title="Vorherige Woche">&larr;</a>
+            <span class="fw-semibold px-1">KW&nbsp;@Model.KalenderWoche&nbsp;/&nbsp;@Model.Montag.Year</span>
+            <a class="btn btn-outline-secondary btn-sm"
+               asp-page="/Einkaufsliste"
+               asp-route-datum="@nextMontag.ToString("yyyy-MM-dd")"
+               title="Nächste Woche">&rarr;</a>
+            <a class="btn btn-outline-secondary btn-sm ms-1"
+               asp-page="/Einkaufsliste"
+               title="Aktuelle Woche">Heute</a>
+            <button type="button" id="check-all-shopping-list" class="btn btn-outline-secondary btn-sm ms-1">Alles abhaken</button>
+            <button type="button" id="reset-shopping-list" class="btn btn-outline-secondary btn-sm ms-1">Zurücksetzen</button>
+            <button type="button" id="copy-shopping-list" class="btn btn-outline-primary btn-sm ms-1">Kopieren</button>
+            <button type="button" class="btn btn-primary btn-sm ms-1" onclick="window.print()">Drucken</button>
+        </div>
+    </div>
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <section class="content-panel text-center py-5">
+        <h3 class="mb-2">Keine Zutaten für diese Woche</h3>
+        <p class="text-muted mb-4">Lege zuerst Rezepte im Wochenplan fest, dann erscheint hier deine Einkaufsliste.</p>
+        <a asp-page="/Wochenplan" class="btn btn-primary">Zum Wochenplan</a>
+    </section>
+}
+else
+{
+    <section class="content-panel">
+        <ul class="list-group list-group-flush">
+            @foreach (var item in Model.Items)
+            {
+                var copyAmount = item.MengeSumme.HasValue
+                    ? (string.IsNullOrWhiteSpace(item.Einheit)
+                        ? $"{item.MengeSumme.Value:0.##}"
+                        : $"{item.MengeSumme.Value:0.##} {item.Einheit}")
+                    : item.MengeVonSumme.HasValue && item.MengeBisSumme.HasValue
+                        ? (string.IsNullOrWhiteSpace(item.Einheit)
+                            ? $"{item.MengeVonSumme.Value:0.##}-{item.MengeBisSumme.Value:0.##}"
+                            : $"{item.MengeVonSumme.Value:0.##}-{item.MengeBisSumme.Value:0.##} {item.Einheit}")
+                        : !string.IsNullOrWhiteSpace(item.Einheit)
+                            ? item.Einheit
+                            : string.Empty;
+                var copyLine = string.IsNullOrWhiteSpace(copyAmount) ? item.Name : $"{copyAmount} {item.Name}";
+                if (item.MengenHinweise.Count > 0)
+                {
+                    copyLine += $" (Hinweis: {string.Join(", ", item.MengenHinweise)})";
+                }
+                var itemKey = $"{item.Name}|{item.Einheit ?? string.Empty}";
+                <li class="list-group-item d-flex justify-content-between align-items-start py-3" data-shopping-item="@itemKey">
+                    <div class="d-flex align-items-start gap-2">
+                        <input type="checkbox" class="form-check-input mt-1" data-shopping-check="@itemKey" aria-label="Eintrag abhaken" />
+                        <div>
+                            <div class="fw-semibold" data-shopping-name="@itemKey">@item.Name</div>
+                        @if (item.MengenHinweise.Count > 0)
+                        {
+                            <div class="small text-muted">Hinweis: @string.Join(", ", item.MengenHinweise)</div>
+                        }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        @if (item.MengeSumme.HasValue)
+                        {
+                            <span class="badge bg-primary-subtle text-primary-emphasis fs-6">
+                                @item.MengeSumme.Value.ToString("0.##") @item.Einheit
+                            </span>
+                        }
+                        else if (item.MengeVonSumme.HasValue && item.MengeBisSumme.HasValue)
+                        {
+                            <span class="badge bg-primary-subtle text-primary-emphasis fs-6">
+                                @item.MengeVonSumme.Value.ToString("0.##")-@item.MengeBisSumme.Value.ToString("0.##") @item.Einheit
+                            </span>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(item.Einheit))
+                        {
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis fs-6">@item.Einheit</span>
+                        }
+                    </div>
+                    <span class="d-none" data-copy-line="@copyLine"></span>
+                </li>
+            }
+        </ul>
+        <div id="copy-shopping-list-status" class="small text-muted mt-3" aria-live="polite"></div>
+    </section>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const weekStorageKey = 'shopping-checks-@Model.Montag.ToString("yyyy-MM-dd")';
+            const button = document.getElementById('copy-shopping-list');
+            const checkAllBtn = document.getElementById('check-all-shopping-list');
+            const resetBtn = document.getElementById('reset-shopping-list');
+            const status = document.getElementById('copy-shopping-list-status');
+            const checks = Array.from(document.querySelectorAll('[data-shopping-check]'));
+
+            function loadCheckedSet() {
+                try {
+                    const raw = localStorage.getItem(weekStorageKey);
+                    const values = raw ? JSON.parse(raw) : [];
+                    return new Set(Array.isArray(values) ? values : []);
+                } catch {
+                    return new Set();
+                }
+            }
+
+            function saveCheckedSet(set) {
+                localStorage.setItem(weekStorageKey, JSON.stringify(Array.from(set)));
+            }
+
+            function applyCheckStyles() {
+                checks.forEach(function (check) {
+                    const key = check.getAttribute('data-shopping-check');
+                    if (!key) return;
+                    const name = document.querySelector('[data-shopping-name="' + CSS.escape(key) + '"]');
+                    if (name) {
+                        name.classList.toggle('text-decoration-line-through', check.checked);
+                        name.classList.toggle('text-muted', check.checked);
+                    }
+                });
+            }
+
+            const checkedSet = loadCheckedSet();
+            checks.forEach(function (check) {
+                const key = check.getAttribute('data-shopping-check');
+                if (!key) return;
+                check.checked = checkedSet.has(key);
+                check.addEventListener('change', function () {
+                    if (check.checked) checkedSet.add(key); else checkedSet.delete(key);
+                    saveCheckedSet(checkedSet);
+                    applyCheckStyles();
+                });
+            });
+            applyCheckStyles();
+
+            if (checkAllBtn) {
+                checkAllBtn.addEventListener('click', function () {
+                    checks.forEach(function (check) {
+                        const key = check.getAttribute('data-shopping-check');
+                        if (!key) return;
+                        check.checked = true;
+                        checkedSet.add(key);
+                    });
+                    saveCheckedSet(checkedSet);
+                    applyCheckStyles();
+                    if (status) status.textContent = 'Alle Einträge abgehakt.';
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function () {
+                    checks.forEach(function (check) { check.checked = false; });
+                    checkedSet.clear();
+                    saveCheckedSet(checkedSet);
+                    applyCheckStyles();
+                    if (status) status.textContent = 'Abhak-Status zurückgesetzt.';
+                });
+            }
+
+            if (!button) return;
+
+            button.addEventListener('click', async function () {
+                const lines = Array.from(document.querySelectorAll('[data-copy-line]'))
+                    .map(function (el) { return el.getAttribute('data-copy-line') || ''; })
+                    .filter(function (line) { return line.trim().length > 0; });
+
+                if (lines.length === 0) {
+                    if (status) status.textContent = 'Keine Einträge zum Kopieren vorhanden.';
+                    return;
+                }
+
+                const weekLabel = 'Einkaufsliste KW @Model.KalenderWoche/@Model.Montag.Year';
+                const text = weekLabel + '\n' + lines.map(function (line) { return '- ' + line; }).join('\n');
+
+                try {
+                    await navigator.clipboard.writeText(text);
+                    if (status) status.textContent = 'Einkaufsliste in die Zwischenablage kopiert.';
+                } catch {
+                    if (status) status.textContent = 'Kopieren fehlgeschlagen.';
+                }
+            });
+        })();
+    </script>
+}
+
+<style>
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        .list-group-item {
+            border: 0 !important;
+            border-bottom: 1px solid #ddd !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+    }
+</style>

@@ -21,8 +21,13 @@ if (!string.IsNullOrEmpty(dataSource))
 
 builder.Services.AddRazorPages();
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<IImageStorage, LocalImageStorage>();
 builder.Services.AddScoped<RezeptImageService>();
 builder.Services.AddScoped<ChefkochImporter>();
+builder.Services.AddScoped<IngredientService>();
+builder.Services.AddScoped<RecipeQueryService>();
+builder.Services.AddScoped<RecipeCommandService>();
+builder.Services.AddScoped<MealPlanService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
@@ -47,7 +52,8 @@ app.MapRazorPages();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await context.Database.EnsureCreatedAsync();
+    await MigrationBootstrapper.EnsureLegacyHistoryAsync(context);
+    await context.Database.MigrateAsync();
     await RecipeSeeder.SeedAsync(context);
 }
 
