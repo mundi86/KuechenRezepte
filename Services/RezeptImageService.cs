@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using System.Net.Http.Headers;
 
 namespace KuechenRezepte.Services;
 
@@ -8,10 +9,12 @@ public class RezeptImageService
     private const long MaxImageBytes = 2 * 1024 * 1024;
 
     private readonly IImageStorage _storage;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public RezeptImageService(IImageStorage storage)
+    public RezeptImageService(IImageStorage storage, IHttpClientFactory httpClientFactory)
     {
         _storage = storage;
+        _httpClientFactory = httpClientFactory;
     }
 
     public bool IsValidImage(IFormFile file, out string? error)
@@ -54,6 +57,79 @@ public class RezeptImageService
         }
 
         return result;
+    }
+
+    public async Task<string?> DownloadAndSaveExternalImageAsync(
+        int rezeptId,
+        string imageUrl,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var client = _httpClientFactory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.UserAgent.ParseAdd("KuechenRezepteImageImporter/1.0");
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        if (!response.IsSuccessStatusCode || response.Content == null)
+        {
+            return null;
+        }
+
+        if (response.Content.Headers.ContentLength.HasValue &&
+            response.Content.Headers.ContentLength.Value > MaxImageBytes)
+        {
+            return null;
+        }
+
+        var extension = ResolveExtension(uri, response.Content.Headers.ContentType);
+        if (extension == null)
+        {
+            return null;
+        }
+
+        await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var limited = new MemoryStream();
+        var buffer = new byte[81920];
+        long totalBytes = 0;
+
+        while (true)
+        {
+            var read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            totalBytes += read;
+            if (totalBytes > MaxImageBytes)
+            {
+                return null;
+            }
+
+            await limited.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+
+        if (totalBytes == 0)
+        {
+            return null;
+        }
+
+        limited.Position = 0;
+        var fileName = $"rezept-{rezeptId}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{extension}";
+        var relativePath = $"uploads/{fileName}";
+        await _storage.SaveAsync(relativePath, limited, cancellationToken);
+
+        return $"/uploads/{fileName}";
     }
 
     public List<string> GetImagePaths(int rezeptId, string? primaryPath)
@@ -145,5 +221,25 @@ public class RezeptImageService
     {
         var normalized = path.Replace('\\', '/').Trim();
         return normalized.StartsWith('/') ? normalized : $"/{normalized}";
+    }
+
+    private static string? ResolveExtension(Uri uri, MediaTypeHeaderValue? contentType)
+    {
+        var contentTypeMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["image/jpeg"] = ".jpg",
+            ["image/jpg"] = ".jpg",
+            ["image/png"] = ".png",
+            ["image/webp"] = ".webp"
+        };
+
+        if (contentType?.MediaType != null &&
+            contentTypeMap.TryGetValue(contentType.MediaType, out var byContentType))
+        {
+            return byContentType;
+        }
+
+        var ext = Path.GetExtension(uri.AbsolutePath).ToLowerInvariant();
+        return AllowedTypes.Contains(ext) ? ext : null;
     }
 }

@@ -59,6 +59,19 @@ public class RecipeCommandService
                     rezept.BildPfad = savedPaths[0];
                 }
             }
+            else if (!string.IsNullOrWhiteSpace(rezept.BildPfad) && _imageService.IsExternalPath(rezept.BildPfad))
+            {
+                var importedImagePath = await _imageService.DownloadAndSaveExternalImageAsync(
+                    rezept.Id,
+                    rezept.BildPfad,
+                    cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(importedImagePath))
+                {
+                    savedPaths.Add(importedImagePath);
+                    rezept.BildPfad = importedImagePath;
+                }
+            }
 
             await AttachIngredientsAsync(rezept.Id, zutaten, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);

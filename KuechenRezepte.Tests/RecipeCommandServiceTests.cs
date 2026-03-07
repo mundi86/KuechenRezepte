@@ -98,7 +98,8 @@ public class RecipeCommandServiceTests
 
     private static RecipeCommandService CreateCommandService(AppDbContext context, IImageStorage storage)
     {
-        var imageService = new RezeptImageService(storage);
+        var httpFactoryMock = new Mock<IHttpClientFactory>();
+        var imageService = new RezeptImageService(storage, httpFactoryMock.Object);
         var ingredientService = new IngredientService(context);
         return new RecipeCommandService(context, ingredientService, imageService);
     }

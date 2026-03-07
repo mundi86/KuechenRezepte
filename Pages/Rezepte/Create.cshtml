@@ -19,6 +19,7 @@
     <div class="col-xl-8">
         <form method="post" enctype="multipart/form-data" asp-page-handler="Save" class="content-panel recipe-form-panel">
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <input asp-for="Rezept.BildPfad" type="hidden" />
 
             <section class="form-section">
                 <h4>Basisdaten</h4>
@@ -65,6 +66,13 @@
                     <div class="image-picker-list mt-2" data-image-list></div>
                 </div>
                 <small class="text-muted">Mehrfachauswahl möglich. Max. 2MB pro Bild (jpg, png, webp).</small>
+                @if (!string.IsNullOrWhiteSpace(Model.Rezept.BildPfad))
+                {
+                    <div class="mt-3">
+                        <div class="small text-muted mb-1">Importiertes Titelbild</div>
+                        <img src="@Model.Rezept.BildPfad" alt="Importiertes Titelbild" class="img-fluid rounded-3 border" style="max-height: 180px; object-fit: cover;" />
+                    </div>
+                }
             </section>
 
             <section class="form-section mb-0">

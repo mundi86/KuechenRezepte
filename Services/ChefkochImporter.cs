@@ -20,6 +20,18 @@ public class ChefkochImporter
         @"<img\b(?=[^>]*\bclass\s*=\s*[""'][^""']*\bds-teaser-link__image\b[^""']*[""'])[^>]*>",
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
+    private static readonly Regex PreferredImageWrapTagRegex = new(
+        @"<(?:div|figure)\b(?=[^>]*\bclass\s*=\s*[""'][^""']*\bds-slider-image__image-wrap\b[^""']*\bds-teaser-link__image-wrap\b[^""']*\bds-slider-image__image-wrap--3_2\b[^""']*[""'])[^>]*>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex SliderImageWrapTagRegex = new(
+        @"<(?:div|figure)\b(?=[^>]*\bclass\s*=\s*[""'][^""']*\bds-slider-image__image-wrap\b[^""']*\bds-teaser-link__image-wrap\b[^""']*[""'])[^>]*>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex ImageTagRegex = new(
+        @"<img\b[^>]*>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
     private static readonly Regex AttributeRegex = new(
         @"\b(?<name>[a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*[""'](?<value>[^""']*)[""']",
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
@@ -157,13 +169,65 @@ public class ChefkochImporter
             return null;
         }
 
+        // Prefer the main slider image wrapper from the recipe header.
+        var fromPreferredWrap = ParseImageUrlFromWrap(html, PreferredImageWrapTagRegex);
+        if (!string.IsNullOrWhiteSpace(fromPreferredWrap))
+        {
+            return fromPreferredWrap;
+        }
+
+        var fromSliderWrap = ParseImageUrlFromWrap(html, SliderImageWrapTagRegex);
+        if (!string.IsNullOrWhiteSpace(fromSliderWrap))
+        {
+            return fromSliderWrap;
+        }
+
         var imgMatch = TeaserImageTagRegex.Match(html);
         if (!imgMatch.Success)
         {
             return null;
         }
 
-        var tag = imgMatch.Value;
+        return ParseImageUrlFromTag(imgMatch.Value);
+    }
+
+    private static string? ParseImageUrlFromWrap(string html, Regex wrapRegex)
+    {
+        var wrapMatches = wrapRegex.Matches(html);
+        foreach (Match wrapMatch in wrapMatches)
+        {
+            if (!wrapMatch.Success)
+            {
+                continue;
+            }
+
+            var searchStart = wrapMatch.Index + wrapMatch.Length;
+            if (searchStart >= html.Length)
+            {
+                continue;
+            }
+
+            // The matching image tag is close to the wrapper start tag on Chefkoch pages.
+            var searchLength = Math.Min(2500, html.Length - searchStart);
+            var searchWindow = html.Substring(searchStart, searchLength);
+            var imageMatch = ImageTagRegex.Match(searchWindow);
+            if (!imageMatch.Success)
+            {
+                continue;
+            }
+
+            var parsed = ParseImageUrlFromTag(imageMatch.Value);
+            if (!string.IsNullOrWhiteSpace(parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ParseImageUrlFromTag(string tag)
+    {
         var src = ReadImageAttribute(tag, "src")
                   ?? ReadImageAttribute(tag, "data-src")
                   ?? ParseSrcsetFirstUrl(ReadImageAttribute(tag, "srcset"));

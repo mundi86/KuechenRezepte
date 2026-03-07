@@ -9,7 +9,8 @@ public class RezeptImageServiceTests
     private static RezeptImageService CreateService()
     {
         var storageMock = new Mock<IImageStorage>();
-        return new RezeptImageService(storageMock.Object);
+        var httpFactoryMock = new Mock<IHttpClientFactory>();
+        return new RezeptImageService(storageMock.Object, httpFactoryMock.Object);
     }
 
     private static IFormFile CreateFormFile(string fileName, long sizeBytes, string contentType = "image/jpeg")

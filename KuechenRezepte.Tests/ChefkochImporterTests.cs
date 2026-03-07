@@ -190,6 +190,49 @@ public class ChefkochImporterTests
     }
 
     [Fact]
+    public void Parse_PrefersSliderWrapImageOverGenericTeaserImage()
+    {
+        const string html = """
+            <html><body>
+            <img class="ds-teaser-link__image" src="https://img.chefkoch-cdn.de/wrong-teaser.jpg" />
+            <figure class="ds-slider-image__image-wrap ds-teaser-link__image-wrap ds-slider-image__image-wrap--3_2">
+                <img class="ds-teaser-link__image" src="https://img.chefkoch-cdn.de/right-main.jpg" />
+            </figure>
+            <script type="application/ld+json">
+            { "@type": "Recipe", "name": "Bildpriorität" }
+            </script>
+            </body></html>
+            """;
+
+        var importer = new ChefkochImporter();
+        var result = importer.Parse(html);
+
+        Assert.NotNull(result);
+        Assert.Equal("https://img.chefkoch-cdn.de/right-main.jpg", result.ImageUrl);
+    }
+
+    [Fact]
+    public void Parse_SliderWrapImageWithProtocolRelativeUrl_NormalizesToHttps()
+    {
+        const string html = """
+            <html><body>
+            <div class="ds-slider-image__image-wrap ds-teaser-link__image-wrap ds-slider-image__image-wrap--3_2">
+                <img class="ds-teaser-link__image" src="//img.chefkoch-cdn.de/right-main-2.jpg" />
+            </div>
+            <script type="application/ld+json">
+            { "@type": "Recipe", "name": "Bildnormalisierung" }
+            </script>
+            </body></html>
+            """;
+
+        var importer = new ChefkochImporter();
+        var result = importer.Parse(html);
+
+        Assert.NotNull(result);
+        Assert.Equal("https://img.chefkoch-cdn.de/right-main-2.jpg", result.ImageUrl);
+    }
+
+    [Fact]
     public void Parse_NoRecipeType_ReturnsNull()
     {
         const string html = """

@@ -192,19 +192,35 @@ public class CreateModel : PageModel
 
     private async Task<string?> FetchHtmlAsync(Uri recipeUri)
     {
-        var client = _httpClientFactory.CreateClient();
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        using var request = new HttpRequestMessage(HttpMethod.Get, recipeUri);
-        request.Headers.UserAgent.ParseAdd("KuechenRezepteImporter/1.0");
-        request.Headers.Accept.ParseAdd("text/html");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            using var request = new HttpRequestMessage(HttpMethod.Get, recipeUri);
+            request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+            request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            request.Headers.AcceptLanguage.ParseAdd("de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7");
 
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
-        if (!response.IsSuccessStatusCode)
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!response.IsSuccessStatusCode || response.Content == null)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadAsStringAsync(cts.Token);
+        }
+        catch (HttpRequestException)
         {
             return null;
         }
-
-        return await response.Content.ReadAsStringAsync(cts.Token);
+        catch (TaskCanceledException)
+        {
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
     }
 }
