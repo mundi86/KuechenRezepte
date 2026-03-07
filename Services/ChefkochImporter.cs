@@ -16,6 +16,14 @@ public class ChefkochImporter
         @"^\s*(?<qty>\d+(?:[.,]\d+)?(?:\s*[/-]\s*\d+(?:[.,]\d+)?)?)\s*(?<unit>[A-Za-z.]+)?\s+(?<name>.+)$",
         RegexOptions.Compiled);
 
+    private static readonly Regex TeaserImageTagRegex = new(
+        @"<img\b(?=[^>]*\bclass\s*=\s*[""'][^""']*\bds-teaser-link__image\b[^""']*[""'])[^>]*>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex AttributeRegex = new(
+        @"\b(?<name>[a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*[""'](?<value>[^""']*)[""']",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
     private static readonly HashSet<string> KnownUnits = new(StringComparer.OrdinalIgnoreCase)
     {
         "g", "kg", "mg", "ml", "cl", "l", "tl", "el", "pck", "pkt", "dose", "dosen",
@@ -25,6 +33,7 @@ public class ChefkochImporter
 
     public ImportResult? Parse(string html)
     {
+        var teaserImageUrl = ParseTeaserImageUrl(html);
         var scriptMatches = JsonLdRegex.Matches(html);
         foreach (Match match in scriptMatches)
         {
@@ -42,7 +51,7 @@ public class ChefkochImporter
                     continue;
                 }
 
-                var recipe = MapImportResult(recipeElement);
+                var recipe = MapImportResult(recipeElement, teaserImageUrl);
                 if (recipe != null)
                 {
                     return recipe;
@@ -118,7 +127,7 @@ public class ChefkochImporter
         };
     }
 
-    private static ImportResult? MapImportResult(JsonElement recipeElement)
+    private static ImportResult? MapImportResult(JsonElement recipeElement, string? teaserImageUrl)
     {
         var name = ReadFlexibleString(recipeElement, "name");
         if (string.IsNullOrWhiteSpace(name))
@@ -136,9 +145,83 @@ public class ChefkochImporter
             Instructions = ParseInstructions(recipeElement),
             Portions = ParsePortions(ReadFlexibleString(recipeElement, "recipeYield")),
             TotalMinutes = ParseTotalMinutes(recipeElement),
-            ImageUrl = ParseImageUrl(recipeElement),
+            ImageUrl = teaserImageUrl ?? ParseImageUrl(recipeElement),
             Ingredients = ParseIngredients(recipeElement)
         };
+    }
+
+    private static string? ParseTeaserImageUrl(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return null;
+        }
+
+        var imgMatch = TeaserImageTagRegex.Match(html);
+        if (!imgMatch.Success)
+        {
+            return null;
+        }
+
+        var tag = imgMatch.Value;
+        var src = ReadImageAttribute(tag, "src")
+                  ?? ReadImageAttribute(tag, "data-src")
+                  ?? ParseSrcsetFirstUrl(ReadImageAttribute(tag, "srcset"));
+
+        if (string.IsNullOrWhiteSpace(src))
+        {
+            return null;
+        }
+
+        return NormalizeImageUrl(src);
+    }
+
+    private static string? ReadImageAttribute(string tag, string attributeName)
+    {
+        foreach (Match match in AttributeRegex.Matches(tag))
+        {
+            var name = match.Groups["name"].Value;
+            if (string.Equals(name, attributeName, StringComparison.OrdinalIgnoreCase))
+            {
+                var value = WebUtility.HtmlDecode(match.Groups["value"].Value).Trim();
+                return string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ParseSrcsetFirstUrl(string? srcset)
+    {
+        if (string.IsNullOrWhiteSpace(srcset))
+        {
+            return null;
+        }
+
+        var first = srcset.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            return null;
+        }
+
+        var parts = first.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length > 0 ? parts[0] : null;
+    }
+
+    private static string? NormalizeImageUrl(string value)
+    {
+        if (value.StartsWith("//", StringComparison.Ordinal))
+        {
+            return $"https:{value}";
+        }
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out _))
+        {
+            return value;
+        }
+
+        return null;
     }
 
     private static string? ParseImageUrl(JsonElement recipeElement)

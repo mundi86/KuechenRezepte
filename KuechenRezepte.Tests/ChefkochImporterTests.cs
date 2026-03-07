@@ -143,11 +143,13 @@ public class ChefkochImporterTests
     {
         const string html = """
             <html><body>
+            <img class="ds-teaser-link__image" src="https://img.chefkoch-cdn.de/teaser.jpg" />
             <script type="application/ld+json">
             {
               "@type": "Recipe",
               "name": "Testrezept",
               "description": "Eine Beschreibung",
+              "image": "https://img.chefkoch-cdn.de/jsonld.jpg",
               "recipeYield": "4 Portionen",
               "totalTime": "PT45M",
               "recipeIngredient": ["200 g Mehl", "2 Eier"]
@@ -165,6 +167,26 @@ public class ChefkochImporterTests
         Assert.Equal(4, result.Portions);
         Assert.Equal(45, result.TotalMinutes);
         Assert.Equal(2, result.Ingredients.Count);
+        Assert.Equal("https://img.chefkoch-cdn.de/teaser.jpg", result.ImageUrl);
+    }
+
+    [Fact]
+    public void Parse_TeaserImageWithProtocolRelativeUrl_NormalizesToHttps()
+    {
+        const string html = """
+            <html><body>
+            <img class="foo ds-teaser-link__image bar" src="//img.chefkoch-cdn.de/teaser2.jpg" />
+            <script type="application/ld+json">
+            { "@type": "Recipe", "name": "Bildtest" }
+            </script>
+            </body></html>
+            """;
+
+        var importer = new ChefkochImporter();
+        var result = importer.Parse(html);
+
+        Assert.NotNull(result);
+        Assert.Equal("https://img.chefkoch-cdn.de/teaser2.jpg", result.ImageUrl);
     }
 
     [Fact]
