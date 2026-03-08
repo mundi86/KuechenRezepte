@@ -52,6 +52,27 @@
             <p class="text-muted small mb-0">Kategorien: Fruehstueck, Mittagessen, Abendessen, Dessert, Snack, Getraenk (auch einfache Synonyme).</p>
         </section>
 
+        <section class="content-panel form-side-panel mb-3">
+            <h5 class="mb-2">Prompt für ChatGPT</h5>
+            <p class="text-muted small mb-2">Diesen Text kannst du 1:1 verwenden:</p>
+            <textarea class="form-control font-monospace small" rows="12" readonly>Bitte extrahiere aus dem folgenden Rezepttext ein JSON-Array mit exakt dieser Struktur pro Rezept:
+[
+  {
+    "name": "string",
+    "beschreibung": "string oder null",
+    "zubereitung": "string oder null",
+    "kategorie": "Fruehstueck|Mittagessen|Abendessen|Dessert|Snack|Getraenk",
+    "portionen": 2,
+    "zubereitungszeit": 30,
+    "bildPfad": null,
+    "zutaten": [
+      { "name": "string", "menge": "string oder null", "einheit": "string oder null" }
+    ]
+  }
+]
+Gib NUR JSON zurück, ohne Markdown und ohne zusätzliche Erklärungen.</textarea>
+        </section>
+
         @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
         {
             <div class="alert @(Model.ImportSucceeded ? "alert-success" : "alert-warning") mb-0">

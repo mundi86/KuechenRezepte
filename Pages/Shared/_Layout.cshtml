@@ -2,7 +2,6 @@
     string? currentPage = ViewContext.RouteData.Values["page"]?.ToString();
     bool isIndex = currentPage == "/" || string.Equals(currentPage, "/Index", StringComparison.OrdinalIgnoreCase);
     bool isCreate = string.Equals(currentPage, "/Rezepte/Create", StringComparison.OrdinalIgnoreCase);
-    bool isImportJson = string.Equals(currentPage, "/Rezepte/ImportJson", StringComparison.OrdinalIgnoreCase);
     bool isRandom = string.Equals(currentPage, "/Random", StringComparison.OrdinalIgnoreCase);
     bool isWochenplan = string.Equals(currentPage, "/Wochenplan", StringComparison.OrdinalIgnoreCase);
     bool isEinkaufsliste = string.Equals(currentPage, "/Einkaufsliste", StringComparison.OrdinalIgnoreCase);
@@ -38,9 +37,6 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(isCreate ? "active" : "")" asp-area="" asp-page="/Rezepte/Create">Neues Rezept</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link @(isImportJson ? "active" : "")" asp-area="" asp-page="/Rezepte/ImportJson">JSON-Import</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(isRandom ? "active" : "")" asp-area="" asp-page="/Random">Inspiration</a>
