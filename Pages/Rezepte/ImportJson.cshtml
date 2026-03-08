@@ -1,0 +1,108 @@
+@page
+@model KuechenRezepte.Pages.Rezepte.ImportJsonModel
+@{
+    ViewData["Title"] = "JSON-Import";
+}
+
+<section class="hero-panel form-hero mb-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+            <p class="hero-kicker mb-2">BATCH IMPORT</p>
+            <h1 class="mb-2">Rezepte per JSON importieren</h1>
+            <p class="hero-sub mb-0">Word-Inhalte zuerst in JSON umwandeln, dann gesammelt validieren und importieren.</p>
+        </div>
+        <a asp-page="/Rezepte/Create" class="btn btn-outline-secondary">Neues Einzelrezept</a>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <form method="post" enctype="multipart/form-data" class="content-panel recipe-form-panel">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <section class="form-section">
+                <h4>JSON Quelle</h4>
+                <div class="mb-3">
+                    <label asp-for="JsonDatei" class="form-label">JSON-Datei (.json)</label>
+                    <input asp-for="JsonDatei" type="file" class="form-control" accept=".json,application/json" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="JsonInput" class="form-label">Oder JSON direkt einfügen</label>
+                    <textarea asp-for="JsonInput" class="form-control font-monospace" rows="14"
+                              placeholder='[{"name":"Spaghetti Carbonara","kategorie":"Abendessen","portionen":4,"zutaten":[{"name":"Spaghetti","menge":"400","einheit":"g"}]}]'></textarea>
+                </div>
+                <div class="form-check">
+                    <input asp-for="NurPruefen" class="form-check-input" />
+                    <label asp-for="NurPruefen" class="form-check-label">Nur prüfen (Dry Run, nichts speichern)</label>
+                </div>
+            </section>
+
+            <div class="d-flex gap-2 flex-wrap mt-4">
+                <button type="submit" class="btn btn-primary">JSON verarbeiten</button>
+                <a asp-page="/Index" class="btn btn-secondary">Abbrechen</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-xl-4">
+        <section class="content-panel form-side-panel mb-3">
+            <h5 class="mb-2">Erlaubte Struktur</h5>
+            <p class="text-muted small mb-2">Top-Level als Array oder Objekt mit <code>rezepte</code>/<code>recipes</code>.</p>
+            <p class="text-muted small mb-2">Feldnamen flexibel: z. B. <code>name</code>, <code>beschreibung/description</code>, <code>zubereitung/instructions</code>, <code>kategorie/category</code>, <code>zutaten/ingredients</code>.</p>
+            <p class="text-muted small mb-0">Kategorien: Fruehstueck, Mittagessen, Abendessen, Dessert, Snack, Getraenk (auch einfache Synonyme).</p>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+        {
+            <div class="alert @(Model.ImportSucceeded ? "alert-success" : "alert-warning") mb-0">
+                @Model.StatusMessage
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.Summary != null)
+{
+    <section class="content-panel mt-4">
+        <div class="d-flex flex-wrap gap-3 mb-3">
+            <span class="badge bg-secondary">Gesamt: @Model.Summary.Total</span>
+            @if (Model.NurPruefen)
+            {
+                <span class="badge bg-success">Gültig: @Model.Summary.Valid</span>
+            }
+            else
+            {
+                <span class="badge bg-success">Importiert: @Model.Summary.Imported</span>
+            }
+            <span class="badge bg-danger">Fehler: @Model.Summary.Failed</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Rezept</th>
+                        <th>Status</th>
+                        <th>Nachricht</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Summary.Results)
+                {
+                    <tr>
+                        <td>@row.Index</td>
+                        <td>@(string.IsNullOrWhiteSpace(row.Name) ? "-" : row.Name)</td>
+                        <td>
+                            <span class="badge @(row.Success ? "bg-success" : "bg-danger")">
+                                @(row.Success ? "OK" : "Fehler")
+                            </span>
+                        </td>
+                        <td>@row.Message</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

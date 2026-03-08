@@ -28,6 +28,7 @@ builder.Services.AddScoped<IngredientService>();
 builder.Services.AddScoped<RecipeQueryService>();
 builder.Services.AddScoped<RecipeCommandService>();
 builder.Services.AddScoped<MealPlanService>();
+builder.Services.AddScoped<RecipeJsonImportService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
