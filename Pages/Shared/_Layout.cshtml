@@ -22,30 +22,31 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Direkt zum Inhalt springen</a>
     <header class="app-header">
-        <nav class="navbar navbar-expand-lg app-navbar">
+        <nav class="navbar navbar-expand-lg app-navbar" aria-label="Hauptnavigation">
             <div class="container">
                 <div class="navbar-shell">
-                    <a class="navbar-brand" asp-area="" asp-page="/Index">KüchenRezepte</a>
+                    <a class="navbar-brand" asp-area="" asp-page="/Index">KuechenRezepte</a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Navigation umschalten">
                         <span class="navbar-toggler-icon"></span>
                     </button>
                     <div id="mainNav" class="navbar-collapse collapse">
                         <ul class="navbar-nav ms-auto align-items-lg-center">
                             <li class="nav-item">
-                                <a class="nav-link @(isIndex ? "active" : "")" asp-area="" asp-page="/Index">Alle Rezepte</a>
+                                <a class="nav-link @(isIndex ? "active" : "")" aria-current="@(isIndex ? "page" : null)" asp-area="" asp-page="/Index">Alle Rezepte</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link @(isCreate ? "active" : "")" asp-area="" asp-page="/Rezepte/Create">Neues Rezept</a>
+                                <a class="nav-link @(isCreate ? "active" : "")" aria-current="@(isCreate ? "page" : null)" asp-area="" asp-page="/Rezepte/Create">Neues Rezept</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link @(isRandom ? "active" : "")" asp-area="" asp-page="/Random">Inspiration</a>
+                                <a class="nav-link @(isRandom ? "active" : "")" aria-current="@(isRandom ? "page" : null)" asp-area="" asp-page="/Random">Inspiration</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link @(isWochenplan ? "active" : "")" asp-area="" asp-page="/Wochenplan">Wochenplan</a>
+                                <a class="nav-link @(isWochenplan ? "active" : "")" aria-current="@(isWochenplan ? "page" : null)" asp-area="" asp-page="/Wochenplan">Wochenplan</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link @(isEinkaufsliste ? "active" : "")" asp-area="" asp-page="/Einkaufsliste">Einkaufsliste</a>
+                                <a class="nav-link @(isEinkaufsliste ? "active" : "")" aria-current="@(isEinkaufsliste ? "page" : null)" asp-area="" asp-page="/Einkaufsliste">Einkaufsliste</a>
                             </li>
                             <li class="nav-item">
                                 <button type="button" id="theme-toggle" class="btn btn-link nav-link px-2"
@@ -61,7 +62,7 @@
     </header>
 
     <div class="container page-shell">
-        <main role="main">
+        <main id="main-content" role="main" tabindex="-1">
             @RenderBody()
         </main>
     </div>
@@ -92,3 +93,4 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+

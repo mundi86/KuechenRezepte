@@ -27,13 +27,13 @@
                     <input asp-for="JsonDatei" type="file" class="form-control" accept=".json,application/json" />
                 </div>
                 <div class="mb-3">
-                    <label asp-for="JsonInput" class="form-label">Oder JSON direkt einfügen</label>
+                    <label asp-for="JsonInput" class="form-label">Oder JSON direkt einfuegen</label>
                     <textarea asp-for="JsonInput" class="form-control font-monospace" rows="14"
                               placeholder='[{"name":"Spaghetti Carbonara","kategorie":"Abendessen","portionen":4,"zutaten":[{"name":"Spaghetti","menge":"400","einheit":"g"}]}]'></textarea>
                 </div>
                 <div class="form-check">
                     <input asp-for="NurPruefen" class="form-check-input" />
-                    <label asp-for="NurPruefen" class="form-check-label">Nur prüfen (Dry Run, nichts speichern)</label>
+                    <label asp-for="NurPruefen" class="form-check-label">Nur pruefen (Dry Run, nichts speichern)</label>
                 </div>
             </section>
 
@@ -53,7 +53,7 @@
         </section>
 
         <section class="content-panel form-side-panel mb-3">
-            <h5 class="mb-2">Prompt für ChatGPT</h5>
+            <h5 class="mb-2">Prompt fuer ChatGPT</h5>
             <p class="text-muted small mb-2">Diesen Text kannst du 1:1 verwenden:</p>
             <textarea class="form-control font-monospace small" rows="12" readonly>Bitte extrahiere aus dem folgenden Rezepttext ein JSON-Array mit exakt dieser Struktur pro Rezept:
 [
@@ -70,12 +70,12 @@
     ]
   }
 ]
-Gib NUR JSON zurück, ohne Markdown und ohne zusätzliche Erklärungen.</textarea>
+Gib NUR JSON zurueck, ohne Markdown und ohne zusaetzliche Erklaerungen.</textarea>
         </section>
 
         @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
         {
-            <div class="alert @(Model.ImportSucceeded ? "alert-success" : "alert-warning") mb-0">
+            <div class="alert @(Model.ImportSucceeded ? "alert-success" : "alert-warning") mb-0" role="status" aria-live="polite">
                 @Model.StatusMessage
             </div>
         }
@@ -89,7 +89,7 @@ Gib NUR JSON zurück, ohne Markdown und ohne zusätzliche Erklärungen.</textare
             <span class="badge bg-secondary">Gesamt: @Model.Summary.Total</span>
             @if (Model.NurPruefen)
             {
-                <span class="badge bg-success">Gültig: @Model.Summary.Valid</span>
+                <span class="badge bg-success">Gueltig: @Model.Summary.Valid</span>
             }
             else
             {
@@ -102,17 +102,17 @@ Gib NUR JSON zurück, ohne Markdown und ohne zusätzliche Erklärungen.</textare
             <table class="table table-sm align-middle">
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Rezept</th>
-                        <th>Status</th>
-                        <th>Nachricht</th>
+                        <th scope="col">#</th>
+                        <th scope="col">Rezept</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Nachricht</th>
                     </tr>
                 </thead>
                 <tbody>
                 @foreach (var row in Model.Summary.Results)
                 {
                     <tr>
-                        <td>@row.Index</td>
+                        <th scope="row">@row.Index</th>
                         <td>@(string.IsNullOrWhiteSpace(row.Name) ? "-" : row.Name)</td>
                         <td>
                             <span class="badge @(row.Success ? "bg-success" : "bg-danger")">

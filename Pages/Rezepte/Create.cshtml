@@ -133,13 +133,14 @@
         <form method="post" asp-page-handler="Import" class="glass-panel form-side-panel import-helper mb-3">
             <h5 class="mb-2">Import Assistent</h5>
             <p class="text-muted small mb-3">Chefkoch-Link einfügen, Felder automatisch vorbefüllen und vor dem Speichern kurz prüfen.</p>
+            <label asp-for="ImportUrl" class="visually-hidden">Chefkoch URL</label>
             <div class="input-group mb-2">
                 <input asp-for="ImportUrl" class="form-control" placeholder="https://www.chefkoch.de/rezepte/..." />
                 <button type="submit" class="btn btn-primary">Importieren</button>
             </div>
             @if (!string.IsNullOrWhiteSpace(Model.ImportStatusMessage))
             {
-                <div class="alert @(Model.ImportSucceeded ? "alert-success" : "alert-warning") mb-0">
+                <div class="alert @(Model.ImportSucceeded ? "alert-success" : "alert-warning") mb-0" role="status" aria-live="polite">
                     @Model.ImportStatusMessage
                 </div>
             }

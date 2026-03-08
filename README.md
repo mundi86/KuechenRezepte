@@ -18,6 +18,7 @@ Eine ASP.NET Core Razor Pages App zum Verwalten, Planen und Entdecken von Rezept
 - JSON-Batch-Import für viele Rezepte (Datei oder Paste, inkl. Dry-Run)
 - API-Endpunkte für Tagesabfrage (`/api/mealplan/today`, `/api/mealplan/tomorrow`)
 - Security-Hardening für APIs (Rate-Limits, Audit-Logs, Alexa-Signaturprüfung, IP-Allowlist)
+- Accessibility-Verbesserungen (Skip-Link, Fokus-Styles, ARIA-Live, bessere Navigation-Semantik)
 - Bild-Upload inkl. Galerie/Lightbox (`jpg`, `jpeg`, `png`, `webp`, max. 2 MB)
 - Seed-Daten beim ersten Start (5 Rezepte)
 - Dark/Light Theme Toggle
@@ -114,6 +115,18 @@ Aufruf über `Neues Rezept` (Seitenpanel-Link) oder direkt `/Rezepte/ImportJson`
   - Rezeptname
   - Status (`OK`/`Fehler`)
   - Nachricht (z. B. Import-ID oder Fehlertext)
+
+## Accessibility (a11y)
+
+Umgesetzt (WCAG-orientiert):
+
+- Skip-Link am Seitenanfang (`Direkt zum Inhalt springen`)
+- `main`-Landmarke mit Zielanker (`id="main-content"`)
+- Hauptnavigation mit `aria-label`
+- aktive Navigation mit `aria-current="page"`
+- sichtbare, kontrastreiche `:focus-visible`-Styles
+- Statusmeldungen mit `role="status"` und `aria-live="polite"`
+- Ergebnis-Tabelle im JSON-Import mit `scope` für Header/Row-Header
 
 ## Mealplan API (Alexa-Basis)
 

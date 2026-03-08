@@ -84,6 +84,29 @@ h5,
     padding-top: 1rem;
 }
 
+.skip-link {
+    position: absolute;
+    top: -48px;
+    left: 1rem;
+    z-index: 1100;
+    padding: 0.55rem 0.8rem;
+    border-radius: 10px;
+    background: #04142b;
+    color: #ffffff;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+    top: 0.8rem;
+}
+
+:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 78%, #ffffff);
+    outline-offset: 2px;
+}
+
 .app-navbar {
     padding: 0;
 }
@@ -662,6 +685,14 @@ h5,
     color: var(--ink);
     text-decoration: none;
     font-weight: 600;
+}
+
+.footer-credit:focus-visible,
+.gallery-image-link:focus-visible,
+.nav-link:focus-visible,
+.btn:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 78%, #ffffff);
+    outline-offset: 2px;
 }
 
 .toast-container {
