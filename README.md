@@ -16,6 +16,7 @@ Eine ASP.NET Core Razor Pages App zum Verwalten, Planen und Entdecken von Rezept
   - Copy-to-Clipboard, Druckansicht, Abhaken mit Wochen-Persistenz (`localStorage`)
 - Chefkoch-Import (JSON-LD Parsing + Hauptbild-Übernahme)
 - JSON-Batch-Import für viele Rezepte (Datei oder Paste, inkl. Dry-Run)
+- API-Endpunkte für Tagesabfrage (`/api/mealplan/today`, `/api/mealplan/tomorrow`)
 - Bild-Upload inkl. Galerie/Lightbox (`jpg`, `jpeg`, `png`, `webp`, max. 2 MB)
 - Seed-Daten beim ersten Start (5 Rezepte)
 - Dark/Light Theme Toggle
@@ -69,7 +70,7 @@ Beim Import aus `chefkoch.de` werden Felder aus JSON-LD gelesen und mit zusätzl
 
 ## JSON-Import für viele Rezepte
 
-Aufruf über Navigation: `JSON-Import` oder direkt `/Rezepte/ImportJson`.
+Aufruf über `Neues Rezept` (Seitenpanel-Link) oder direkt `/Rezepte/ImportJson`.
 
 ### Typischer Word -> JSON Workflow
 
@@ -112,6 +113,211 @@ Aufruf über Navigation: `JSON-Import` oder direkt `/Rezepte/ImportJson`.
   - Rezeptname
   - Status (`OK`/`Fehler`)
   - Nachricht (z. B. Import-ID oder Fehlertext)
+
+## Mealplan API (Alexa-Basis)
+
+Für Sprachassistenten oder andere Clients stehen Tages-Endpunkte bereit:
+
+- `GET /api/mealplan/today`
+- `GET /api/mealplan/tomorrow`
+- `GET /api/mealplan/day/{date}` mit `date` im Format `yyyy-MM-dd`
+
+Wenn `Security:Api:MealPlanApiKey` gesetzt ist, muss der Header mitgesendet werden:
+
+- `X-API-Key: <dein-key>`
+
+Beispiel:
+
+```txt
+GET /api/mealplan/day/2026-03-09
+```
+
+Beispiel-Response:
+
+```json
+{
+  "datum": "2026-03-09",
+  "wochentag": "Montag",
+  "rezeptId": 12,
+  "rezeptName": "Chili con Carne",
+  "kategorie": "Abendessen",
+  "zubereitungszeit": 35,
+  "speechText": "Am Montag, den 09.03.2026, gibt es Chili con Carne. Die Zubereitung dauert etwa 35 Minuten."
+}
+```
+
+Wenn kein Rezept geplant ist, liefert `speechText` eine passende "kein Eintrag"-Ansage.  
+Damit kann ein Alexa Skill die Antwort direkt vorlesen.
+
+## Alexa Webhook (Intent-Mapping)
+
+Endpoint:
+
+- `POST /api/alexa`
+
+Sicherheitschecks:
+
+- optionaler Skill-ID-Check via `Security:Alexa:SkillId`
+- Timestamp-Check via `request.timestamp` (standardmäßig aktiv)
+- erlaubtes Zeitfenster über `Security:Alexa:MaxRequestAgeSeconds`
+
+Unterstützte Request-Typen/Intents:
+
+- `LaunchRequest`
+- `IntentRequest`:
+  - `TodayIntent` / `MealPlanTodayIntent`
+  - `TomorrowIntent` / `MealPlanTomorrowIntent`
+  - `DayIntent` / `MealPlanByDateIntent` (Slot `date` oder `datum` im Format `yyyy-MM-dd`)
+  - `AMAZON.HelpIntent`
+  - `AMAZON.FallbackIntent`
+
+Beispiel-Request (`TodayIntent`):
+
+```json
+{
+  "request": {
+    "type": "IntentRequest",
+    "intent": {
+      "name": "TodayIntent"
+    }
+  }
+}
+```
+
+Beispiel-Response:
+
+```json
+{
+  "version": "1.0",
+  "response": {
+    "outputSpeech": {
+      "type": "PlainText",
+      "text": "Am Montag, den 09.03.2026, gibt es Chili con Carne. Die Zubereitung dauert etwa 35 Minuten."
+    },
+    "shouldEndSession": true
+  }
+}
+```
+
+## Alexa Developer Console Setup (Copy/Paste)
+
+### 1. Skill erstellen
+
+1. In der Alexa Developer Console `Create Skill` wählen.
+2. Name z. B. `KuechenRezepte`.
+3. Typ: `Custom`.
+4. Hosting: `Provision your own` (Endpoint über deine ASP.NET App).
+
+### 2. Invocation Name
+
+Empfohlen:
+
+- `küchen rezepte`
+
+### 3. Intents anlegen
+
+- `TodayIntent`
+- `TomorrowIntent`
+- `DayIntent` mit Slot:
+  - Name: `date`
+  - Type: `AMAZON.DATE`
+
+### 4. Sample Utterances
+
+`TodayIntent`:
+
+- was gibt es heute
+- was steht heute im wochenplan
+- was essen wir heute
+
+`TomorrowIntent`:
+
+- was gibt es morgen
+- was steht morgen im wochenplan
+- was essen wir morgen
+
+`DayIntent`:
+
+- was gibt es am {date}
+- was steht am {date} im wochenplan
+- was essen wir am {date}
+
+### 5. Endpoint konfigurieren
+
+Im Skill unter `Endpoint`:
+
+- `HTTPS`
+- URL: `https://<deine-domain>/api/alexa`
+
+Wichtig:
+
+- Für lokale Entwicklung brauchst du einen Tunnel mit HTTPS (z. B. Cloudflare Tunnel, ngrok).
+- Alexa akzeptiert nur öffentlich erreichbare HTTPS-Endpunkte.
+- Für private Nutzung: Skill nicht veröffentlichen, nur im eigenen Konto aktivieren.
+
+### 6. Schneller Endpoint-Test (ohne Alexa)
+
+```bash
+curl -X POST https://<deine-domain>/api/alexa \
+  -H "Content-Type: application/json" \
+  -d "{\"request\":{\"type\":\"IntentRequest\",\"intent\":{\"name\":\"TodayIntent\"}}}"
+```
+
+Wenn korrekt konfiguriert, kommt `version: 1.0` mit `response.outputSpeech.text` zurück.
+
+## Security-Konfiguration
+
+Beispiel in `appsettings.json`:
+
+```json
+"Security": {
+  "Api": {
+    "MealPlanApiKey": "dein-langer-zufalls-key"
+  },
+  "Alexa": {
+    "SkillId": "amzn1.ask.skill.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "ValidateTimestamp": true,
+    "MaxRequestAgeSeconds": 150
+  }
+}
+```
+
+Hinweis:
+
+- `MealPlanApiKey` leer: Mealplan-API ohne Header zugänglich.
+- `SkillId` leer: Alexa-Endpoint prüft nur den Timestamp.
+- Empfohlen für privat: starken API-Key setzen und Skill nicht publizieren.
+
+### 7. Optional als JSON-Interaction Model (Beispiel)
+
+```json
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "küchen rezepte",
+      "intents": [
+        {
+          "name": "TodayIntent",
+          "samples": ["was gibt es heute", "was steht heute im wochenplan", "was essen wir heute"]
+        },
+        {
+          "name": "TomorrowIntent",
+          "samples": ["was gibt es morgen", "was steht morgen im wochenplan", "was essen wir morgen"]
+        },
+        {
+          "name": "DayIntent",
+          "slots": [{ "name": "date", "type": "AMAZON.DATE" }],
+          "samples": ["was gibt es am {date}", "was steht am {date} im wochenplan", "was essen wir am {date}"]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] }
+      ]
+    }
+  }
+}
+```
 
 ### Datenbank & Migrations
 

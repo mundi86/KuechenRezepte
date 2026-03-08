@@ -33,6 +33,17 @@ public sealed class MealPlanWeekResult
     public required List<Rezept> AlleRezepte { get; init; }
 }
 
+public sealed class MealPlanDayResult
+{
+    public required DateOnly Datum { get; init; }
+    public required string Wochentag { get; init; }
+    public int? RezeptId { get; init; }
+    public string? RezeptName { get; init; }
+    public Kategorie? Kategorie { get; init; }
+    public int? Zubereitungszeit { get; init; }
+    public required string SpeechText { get; init; }
+}
+
 public sealed class ShoppingListResult
 {
     public required DateOnly Montag { get; init; }

@@ -6,6 +6,30 @@ namespace KuechenRezepte.Tests;
 public class MealPlanServiceTests
 {
     [Fact]
+    public void BuildDaySpeechText_WithRecipe_ContainsRecipeAndTime()
+    {
+        var date = new DateOnly(2026, 3, 9); // Montag
+        var rezept = new Rezept { Name = "Chili con Carne", Zubereitungszeit = 35 };
+
+        var text = MealPlanService.BuildDaySpeechText(date, rezept);
+
+        Assert.Contains("Montag", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Chili con Carne", text, StringComparison.Ordinal);
+        Assert.Contains("35 Minuten", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildDaySpeechText_WithoutRecipe_ContainsNoPlanMessage()
+    {
+        var date = new DateOnly(2026, 3, 10); // Dienstag
+
+        var text = MealPlanService.BuildDaySpeechText(date, null);
+
+        Assert.Contains("Dienstag", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("kein Rezept im Wochenplan", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void AggregateShoppingItems_SumsNumericAmounts_AndGroupsByNameAndUnit()
     {
         var rezeptA = new Rezept

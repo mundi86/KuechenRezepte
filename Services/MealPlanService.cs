@@ -6,7 +6,7 @@ using KuechenRezepte.Models;
 
 namespace KuechenRezepte.Services;
 
-public class MealPlanService
+public class MealPlanService : IMealPlanDayService
 {
     private readonly AppDbContext _context;
     private readonly RecipeQueryService _recipeQueryService;
@@ -35,6 +35,28 @@ public class MealPlanService
             KalenderWoche = ISOWeek.GetWeekOfYear(montag.ToDateTime(TimeOnly.MinValue)),
             Mahlzeiten = mahlzeiten,
             AlleRezepte = await _recipeQueryService.GetAllOrderedByNameAsync(cancellationToken)
+        };
+    }
+
+    public async Task<MealPlanDayResult> GetDayAsync(DateOnly datum, CancellationToken cancellationToken = default)
+    {
+        var mahlzeit = await _context.Mahlzeiten
+            .Include(m => m.Rezept)
+            .FirstOrDefaultAsync(m => m.Datum == datum, cancellationToken);
+
+        var rezept = mahlzeit?.Rezept;
+        var wochentag = CultureInfo.GetCultureInfo("de-DE").DateTimeFormat.GetDayName(datum.DayOfWeek);
+        var speech = BuildDaySpeechText(datum, rezept);
+
+        return new MealPlanDayResult
+        {
+            Datum = datum,
+            Wochentag = wochentag,
+            RezeptId = rezept?.Id,
+            RezeptName = rezept?.Name,
+            Kategorie = rezept?.Kategorie,
+            Zubereitungszeit = rezept?.Zubereitungszeit,
+            SpeechText = speech
         };
     }
 
@@ -95,6 +117,22 @@ public class MealPlanService
     private static DateOnly AktuellerMontag()
     {
         return MontagDerWoche(DateOnly.FromDateTime(DateTime.Today));
+    }
+
+    internal static string BuildDaySpeechText(DateOnly datum, Rezept? rezept)
+    {
+        var weekday = CultureInfo.GetCultureInfo("de-DE").DateTimeFormat.GetDayName(datum.DayOfWeek);
+        var dateText = datum.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        if (rezept == null)
+        {
+            return $"Am {weekday}, den {dateText}, ist kein Rezept im Wochenplan eingetragen.";
+        }
+
+        var prepText = rezept.Zubereitungszeit.HasValue
+            ? $" Die Zubereitung dauert etwa {rezept.Zubereitungszeit.Value} Minuten."
+            : string.Empty;
+
+        return $"Am {weekday}, den {dateText}, gibt es {rezept.Name}.{prepText}";
     }
 
     internal static List<ShoppingListItem> AggregateShoppingItems(IEnumerable<Mahlzeit> mahlzeiten)
