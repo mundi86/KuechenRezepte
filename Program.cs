@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using KuechenRezepte.Data;
@@ -26,6 +29,43 @@ builder.Services.AddRazorPages();
 builder.Services.AddHttpClient();
 builder.Services.Configure<ApiSecurityOptions>(builder.Configuration.GetSection("Security:Api"));
 builder.Services.Configure<AlexaSecurityOptions>(builder.Configuration.GetSection("Security:Alexa"));
+builder.Services.PostConfigure<ApiSecurityOptions>(options =>
+{
+    var env = Environment.GetEnvironmentVariable("KUECHENREZEPTE_MEALPLAN_API_KEY");
+    if (!string.IsNullOrWhiteSpace(env))
+    {
+        options.MealPlanApiKey = env;
+    }
+});
+builder.Services.PostConfigure<AlexaSecurityOptions>(options =>
+{
+    var envSkill = Environment.GetEnvironmentVariable("KUECHENREZEPTE_ALEXA_SKILL_ID");
+    if (!string.IsNullOrWhiteSpace(envSkill))
+    {
+        options.SkillId = envSkill;
+    }
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("mealplan", limiter =>
+    {
+        limiter.PermitLimit = 60;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+
+    options.AddFixedWindowLimiter("alexa", limiter =>
+    {
+        limiter.PermitLimit = 30;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+});
+
 builder.Services.AddScoped<IImageStorage, LocalImageStorage>();
 builder.Services.AddScoped<RezeptImageService>();
 builder.Services.AddScoped<ChefkochImporter>();
@@ -35,6 +75,8 @@ builder.Services.AddScoped<RecipeCommandService>();
 builder.Services.AddScoped<MealPlanService>();
 builder.Services.AddScoped<IMealPlanDayService>(sp => sp.GetRequiredService<MealPlanService>());
 builder.Services.AddScoped<AlexaSkillService>();
+builder.Services.AddScoped<IAlexaRequestSignatureValidator, AlexaRequestSignatureValidator>();
+builder.Services.AddScoped<ApiAuditLogger>();
 builder.Services.AddScoped<RecipeJsonImportService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -52,56 +94,51 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-
+app.UseRateLimiter();
 app.UseAuthorization();
-
-static bool IsMealPlanApiAuthorized(HttpRequest request, ApiSecurityOptions options)
-{
-    if (string.IsNullOrWhiteSpace(options.MealPlanApiKey))
-    {
-        return true;
-    }
-
-    if (!request.Headers.TryGetValue("X-API-Key", out var provided))
-    {
-        return false;
-    }
-
-    return string.Equals(provided.ToString(), options.MealPlanApiKey, StringComparison.Ordinal);
-}
 
 app.MapGet("/api/mealplan/today", async (
     HttpContext httpContext,
     MealPlanService mealPlanService,
     IOptions<ApiSecurityOptions> securityOptions,
+    ApiAuditLogger auditLogger,
     CancellationToken cancellationToken) =>
 {
-    if (!IsMealPlanApiAuthorized(httpContext.Request, securityOptions.Value))
+    var clientIp = ApiSecurityHelper.ResolveClientIp(httpContext.Request);
+    if (!ApiSecurityHelper.IsApiKeyAuthorized(httpContext.Request.Headers, securityOptions.Value.MealPlanApiKey))
     {
+        auditLogger.LogMealPlanAccess("/api/mealplan/today", clientIp, false, "invalid_api_key");
         return Results.Unauthorized();
     }
 
     var today = DateOnly.FromDateTime(DateTime.Today);
     var result = await mealPlanService.GetDayAsync(today, cancellationToken);
+    auditLogger.LogMealPlanAccess("/api/mealplan/today", clientIp, true, "ok");
     return Results.Ok(result);
 })
+.RequireRateLimiting("mealplan")
 .WithName("GetMealPlanToday");
 
 app.MapGet("/api/mealplan/tomorrow", async (
     HttpContext httpContext,
     MealPlanService mealPlanService,
     IOptions<ApiSecurityOptions> securityOptions,
+    ApiAuditLogger auditLogger,
     CancellationToken cancellationToken) =>
 {
-    if (!IsMealPlanApiAuthorized(httpContext.Request, securityOptions.Value))
+    var clientIp = ApiSecurityHelper.ResolveClientIp(httpContext.Request);
+    if (!ApiSecurityHelper.IsApiKeyAuthorized(httpContext.Request.Headers, securityOptions.Value.MealPlanApiKey))
     {
+        auditLogger.LogMealPlanAccess("/api/mealplan/tomorrow", clientIp, false, "invalid_api_key");
         return Results.Unauthorized();
     }
 
     var tomorrow = DateOnly.FromDateTime(DateTime.Today).AddDays(1);
     var result = await mealPlanService.GetDayAsync(tomorrow, cancellationToken);
+    auditLogger.LogMealPlanAccess("/api/mealplan/tomorrow", clientIp, true, "ok");
     return Results.Ok(result);
 })
+.RequireRateLimiting("mealplan")
 .WithName("GetMealPlanTomorrow");
 
 app.MapGet("/api/mealplan/day/{date}", async (
@@ -109,36 +146,94 @@ app.MapGet("/api/mealplan/day/{date}", async (
     string date,
     MealPlanService mealPlanService,
     IOptions<ApiSecurityOptions> securityOptions,
+    ApiAuditLogger auditLogger,
     CancellationToken cancellationToken) =>
 {
-    if (!IsMealPlanApiAuthorized(httpContext.Request, securityOptions.Value))
+    var clientIp = ApiSecurityHelper.ResolveClientIp(httpContext.Request);
+    if (!ApiSecurityHelper.IsApiKeyAuthorized(httpContext.Request.Headers, securityOptions.Value.MealPlanApiKey))
     {
+        auditLogger.LogMealPlanAccess("/api/mealplan/day", clientIp, false, "invalid_api_key");
         return Results.Unauthorized();
     }
 
     if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", out var targetDate))
     {
+        auditLogger.LogMealPlanAccess("/api/mealplan/day", clientIp, false, "invalid_date");
         return Results.BadRequest(new { error = "Ungueltiges Datum. Erwartet: yyyy-MM-dd" });
     }
 
     var result = await mealPlanService.GetDayAsync(targetDate, cancellationToken);
+    auditLogger.LogMealPlanAccess("/api/mealplan/day", clientIp, true, "ok");
     return Results.Ok(result);
 })
+.RequireRateLimiting("mealplan")
 .WithName("GetMealPlanByDate");
 
 app.MapPost("/api/alexa", async (
-    AlexaRequestEnvelope request,
+    HttpContext httpContext,
     AlexaSkillService alexaSkillService,
+    IAlexaRequestSignatureValidator signatureValidator,
+    IOptions<AlexaSecurityOptions> securityOptions,
+    ApiAuditLogger auditLogger,
     CancellationToken cancellationToken) =>
 {
-    if (!alexaSkillService.TryValidateRequest(request, out _))
+    var clientIp = ApiSecurityHelper.ResolveClientIp(httpContext.Request);
+    if (!ApiSecurityHelper.IsClientIpAllowed(httpContext.Request, securityOptions.Value.AllowedClientIps))
     {
+        auditLogger.LogAlexaAccess(null, null, clientIp, false, "ip_not_allowed");
+        return Results.Unauthorized();
+    }
+
+    httpContext.Request.EnableBuffering();
+    string rawBody;
+    using (var reader = new StreamReader(httpContext.Request.Body, leaveOpen: true))
+    {
+        rawBody = await reader.ReadToEndAsync(cancellationToken);
+    }
+
+    httpContext.Request.Body.Position = 0;
+
+    AlexaRequestEnvelope? request;
+    try
+    {
+        request = JsonSerializer.Deserialize<AlexaRequestEnvelope>(rawBody, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+    catch (JsonException)
+    {
+        auditLogger.LogAlexaAccess(null, null, clientIp, false, "invalid_json");
+        return Results.BadRequest(new { error = "Invalid Alexa payload." });
+    }
+
+    if (request == null)
+    {
+        auditLogger.LogAlexaAccess(null, null, clientIp, false, "missing_payload");
+        return Results.BadRequest(new { error = "Missing Alexa payload." });
+    }
+
+    if (securityOptions.Value.ValidateSignature)
+    {
+        var signatureValid = await signatureValidator.ValidateAsync(httpContext.Request, rawBody, cancellationToken);
+        if (!signatureValid)
+        {
+            auditLogger.LogAlexaAccess(request.Request?.Intent?.Name, request.Session?.Application?.ApplicationId, clientIp, false, "invalid_signature");
+            return Results.Unauthorized();
+        }
+    }
+
+    if (!alexaSkillService.TryValidateRequest(request, out var validationError))
+    {
+        auditLogger.LogAlexaAccess(request.Request?.Intent?.Name, request.Session?.Application?.ApplicationId, clientIp, false, validationError);
         return Results.Unauthorized();
     }
 
     var response = await alexaSkillService.HandleAsync(request, cancellationToken);
+    auditLogger.LogAlexaAccess(request.Request?.Intent?.Name, request.Session?.Application?.ApplicationId, clientIp, true, "ok");
     return Results.Ok(response);
 })
+.RequireRateLimiting("alexa")
 .WithName("AlexaWebhook");
 
 app.MapRazorPages();

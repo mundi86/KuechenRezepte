@@ -17,6 +17,7 @@ Eine ASP.NET Core Razor Pages App zum Verwalten, Planen und Entdecken von Rezept
 - Chefkoch-Import (JSON-LD Parsing + Hauptbild-Übernahme)
 - JSON-Batch-Import für viele Rezepte (Datei oder Paste, inkl. Dry-Run)
 - API-Endpunkte für Tagesabfrage (`/api/mealplan/today`, `/api/mealplan/tomorrow`)
+- Security-Hardening für APIs (Rate-Limits, Audit-Logs, Alexa-Signaturprüfung, IP-Allowlist)
 - Bild-Upload inkl. Galerie/Lightbox (`jpg`, `jpeg`, `png`, `webp`, max. 2 MB)
 - Seed-Daten beim ersten Start (5 Rezepte)
 - Dark/Light Theme Toggle
@@ -158,8 +159,10 @@ Endpoint:
 Sicherheitschecks:
 
 - optionaler Skill-ID-Check via `Security:Alexa:SkillId`
+- optionale Alexa-Signaturprüfung (`Signature`, `SignatureCertChainUrl`)
 - Timestamp-Check via `request.timestamp` (standardmäßig aktiv)
 - erlaubtes Zeitfenster über `Security:Alexa:MaxRequestAgeSeconds`
+- optionale IP-Allowlist über `Security:Alexa:AllowedClientIps`
 
 Unterstützte Request-Typen/Intents:
 
@@ -286,7 +289,27 @@ Hinweis:
 
 - `MealPlanApiKey` leer: Mealplan-API ohne Header zugänglich.
 - `SkillId` leer: Alexa-Endpoint prüft nur den Timestamp.
+- `ValidateSignature` sollte in Produktion `true` sein.
 - Empfohlen für privat: starken API-Key setzen und Skill nicht publizieren.
+
+### Env Vars (empfohlen für Secrets)
+
+Statt Keys direkt in `appsettings*.json`:
+
+- `KUECHENREZEPTE_MEALPLAN_API_KEY`
+- `KUECHENREZEPTE_ALEXA_SKILL_ID`
+
+Diese Werte überschreiben die Konfiguration beim Start.
+
+## Rate Limiting und Audit Logging
+
+- Mealplan-API: Fixed Window 60 Requests/Minute
+- Alexa-Endpoint: Fixed Window 30 Requests/Minute
+- Bei Überschreitung: HTTP `429`
+- Audit-Logs (structured):
+  - `audit_type=mealplan ...`
+  - `audit_type=alexa ...`
+  - enthalten u. a. Endpoint/Intent, Client-IP, Erfolg/Fehlergrund
 
 ### 7. Optional als JSON-Interaction Model (Beispiel)
 
