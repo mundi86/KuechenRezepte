@@ -551,6 +551,13 @@ h5,
     color: color-mix(in srgb, var(--muted) 84%, transparent);
 }
 
+/* Native select dropdown list needs explicit high-contrast colors. */
+.form-select option,
+.form-select optgroup {
+    color: #111827;
+    background-color: #ffffff;
+}
+
 .form-control:focus,
 .form-select:focus {
     color: var(--ink);
