@@ -388,7 +388,7 @@ Anpassbar in `appsettings.json`:
 1. Repository klonen
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/mundi/KuechenRezepte.git
 cd KuechenRezepte
 ```
 

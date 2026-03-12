@@ -12,7 +12,11 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-RUN mkdir -p /app/wwwroot/uploads
+RUN mkdir -p /app/wwwroot/uploads \
+    && adduser --disabled-password --no-create-home appuser \
+    && chown -R appuser /app
+
+USER appuser
 
 ENV ASPNETCORE_URLS=http://+:6655
 EXPOSE 6655

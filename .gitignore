@@ -2,9 +2,16 @@ bin/
 obj/
 .vs/
 .vscode/
+.idea/
 *.user
 *.suo
 *.cache
 .DS_Store
+*.log
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+TestResults/
 wwwroot/uploads/*
 !wwwroot/uploads/.gitkeep

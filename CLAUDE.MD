@@ -8,9 +8,9 @@
 ## Projekt-Metadaten
 
 ```
-Projektname:  <PROJEKT_NAME>
-Beschreibung: <KURZE_BESCHREIBUNG>
-Gitea-Repo:   https://gitea.hack4.win/mundi/<repo-name>
+Projektname:  KüchenRezepte
+Beschreibung: ASP.NET Core Razor Pages App zum Verwalten, Planen und Entdecken von Rezepten
+Gitea-Repo:   https://gitea.hack4.win/mundi/KuechenRezepte
 ```
 
 ---
