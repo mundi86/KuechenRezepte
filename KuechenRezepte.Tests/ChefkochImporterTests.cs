@@ -171,6 +171,78 @@ public class ChefkochImporterTests
     }
 
     [Fact]
+    public void Parse_GaumenfreundinJsonLdRecipe_ReturnsImportResult()
+    {
+        const string html = """
+            <html><body>
+            <script type="application/ld+json" class="yoast-schema-graph">
+            {
+              "@context":"https://schema.org",
+              "@graph":[
+                { "@type":"Article", "headline":"Ignorieren" },
+                {
+                  "@type":"Recipe",
+                  "name":"Milchreis, Omas einfaches Rezept",
+                  "description":"Milchreis selber machen ist mit Omas einfachem Rezept kinderleicht.",
+                  "image":["https://www.gaumenfreundin.de/wp-content/uploads/2023/01/Milchreis-Gaumenfreundin.jpg"],
+                  "recipeYield":["4","4 Portionen"],
+                  "cookTime":"PT30M",
+                  "totalTime":"PT30M",
+                  "recipeIngredient":["1 EL Butter","250 g Milchreis ((Rundkornreis))","1 L Milch"],
+                  "recipeInstructions":[
+                    { "@type":"HowToStep", "text":"Butter in einem Topf erhitzen." },
+                    { "@type":"HowToStep", "text":"Milch und Zucker zugeben und aufkochen lassen." }
+                  ]
+                }
+              ]
+            }
+            </script>
+            </body></html>
+            """;
+
+        var importer = new ChefkochImporter();
+        var result = importer.Parse(html);
+
+        Assert.NotNull(result);
+        Assert.Equal("Milchreis, Omas einfaches Rezept", result.Name);
+        Assert.Equal("Milchreis selber machen ist mit Omas einfachem Rezept kinderleicht.", result.Description);
+        Assert.Equal(4, result.Portions);
+        Assert.Equal(30, result.TotalMinutes);
+        Assert.Equal("https://www.gaumenfreundin.de/wp-content/uploads/2023/01/Milchreis-Gaumenfreundin.jpg", result.ImageUrl);
+        Assert.Equal(3, result.Ingredients.Count);
+        Assert.Contains("Butter in einem Topf erhitzen.", result.Instructions);
+        Assert.Contains("Milch und Zucker zugeben und aufkochen lassen.", result.Instructions);
+    }
+
+    [Theory]
+    [InlineData("https://www.chefkoch.de/rezepte/123/test.html", "Chefkoch")]
+    [InlineData("https://chefkoch.de/rezepte/123/test.html", "Chefkoch")]
+    [InlineData("https://www.gaumenfreundin.de/milchreis-rezept/", "Gaumenfreundin")]
+    [InlineData("https://gaumenfreundin.de/milchreis-rezept/", "Gaumenfreundin")]
+    public void TryValidateSupportedUrl_WithSupportedHosts_ReturnsTrue(string url, string expectedSource)
+    {
+        var valid = ChefkochImporter.TryValidateSupportedUrl(url, out var uri, out var sourceName);
+
+        Assert.True(valid);
+        Assert.NotNull(uri);
+        Assert.Equal(expectedSource, sourceName);
+    }
+
+    [Theory]
+    [InlineData("https://example.com/rezept")]
+    [InlineData("ftp://www.chefkoch.de/rezept")]
+    [InlineData("https://user:pass@www.gaumenfreundin.de/rezept")]
+    [InlineData("not a url")]
+    public void TryValidateSupportedUrl_WithUnsupportedOrUnsafeUrl_ReturnsFalse(string url)
+    {
+        var valid = ChefkochImporter.TryValidateSupportedUrl(url, out var uri, out var sourceName);
+
+        Assert.False(valid);
+        Assert.Null(uri);
+        Assert.Null(sourceName);
+    }
+
+    [Fact]
     public void Parse_TeaserImageWithProtocolRelativeUrl_NormalizesToHttps()
     {
         const string html = """
@@ -255,5 +327,55 @@ public class ChefkochImporterTests
         var importer = new ChefkochImporter();
         var result = importer.Parse("<html></html>");
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void Parse_GaumenfreundinRecipeJsonLd_ReturnsImportResult()
+    {
+        const string html = """
+            <html><body>
+            <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@graph": [
+                { "@type": "WebSite", "name": "Gaumenfreundin" },
+                { "@type": "WebPage", "name": "Aioli ohne Ei" },
+                {
+                  "@type": "Recipe",
+                  "name": "Aioli ohne Ei einfach selber machen",
+                  "description": "Für meine wunderbar cremige Blitz-Aioli brauchst du nur eine Handvoll Zutaten und einen Pürierstab.",
+                  "image": ["https://www.gaumenfreundin.de/wp-content/uploads/2021/09/Aioli-ohne-Ei-einfaches-Rezept.jpg"],
+                  "recipeYield": ["8", "8 Portionen"],
+                  "cookTime": "PT5M",
+                  "totalTime": "PT5M",
+                  "recipeIngredient": [
+                    "3 Knoblauchzehen",
+                    "100 ml Milch ((Zimmertemperatur))",
+                    "200 ml Rapsöl (oder Sonnenblumenöl)",
+                    "Salz und Pfeffer",
+                    "1 Spritzer Zitronensaft",
+                    "1 TL Senf"
+                  ],
+                  "recipeInstructions": [
+                    { "@type": "HowToStep", "text": "Knoblauch klein hacken." },
+                    { "@type": "HowToStep", "text": "Alle Zutaten in ein schmales, hohes Gefäß geben." }
+                  ]
+                }
+              ]
+            }
+            </script>
+            </body></html>
+            """;
+
+        var importer = new ChefkochImporter();
+        var result = importer.Parse(html);
+
+        Assert.NotNull(result);
+        Assert.Equal("Aioli ohne Ei einfach selber machen", result.Name);
+        Assert.Equal(8, result.Portions);
+        Assert.Equal(5, result.TotalMinutes);
+        Assert.Equal(6, result.Ingredients.Count);
+        Assert.Equal("https://www.gaumenfreundin.de/wp-content/uploads/2021/09/Aioli-ohne-Ei-einfaches-Rezept.jpg", result.ImageUrl);
+        Assert.Contains("Knoblauch klein hacken.", result.Instructions);
     }
 }

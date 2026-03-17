@@ -8,6 +8,12 @@ namespace KuechenRezepte.Services;
 
 public class ChefkochImporter
 {
+    private static readonly (string HostSuffix, string DisplayName)[] SupportedSources =
+    [
+        ("chefkoch.de", "Chefkoch"),
+        ("gaumenfreundin.de", "Gaumenfreundin")
+    ];
+
     private static readonly Regex JsonLdRegex = new(
         @"<script[^>]*type=[\""']application/ld\+json[\""'][^>]*>(?<json>.*?)</script>",
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
@@ -76,6 +82,62 @@ public class ChefkochImporter
         }
 
         return null;
+    }
+
+    public static bool TryValidateSupportedUrl(string url, out Uri? uri, out string? sourceName)
+    {
+        uri = null;
+        sourceName = null;
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed))
+        {
+            return false;
+        }
+
+        if (!string.Equals(parsed.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(parsed.UserInfo))
+        {
+            return false;
+        }
+
+        if (!TryGetSupportedSource(parsed, out sourceName))
+        {
+            return false;
+        }
+
+        uri = parsed;
+        return true;
+    }
+
+    public static string GetSupportedSourceHint()
+    {
+        return string.Join(" oder ", SupportedSources.Select(s => s.DisplayName));
+    }
+
+    public static string? GetSourceDisplayName(Uri uri)
+    {
+        return TryGetSupportedSource(uri, out var sourceName) ? sourceName : null;
+    }
+
+    private static bool TryGetSupportedSource(Uri uri, out string? sourceName)
+    {
+        foreach (var source in SupportedSources)
+        {
+            if (string.Equals(uri.Host, source.HostSuffix, StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.EndsWith($".{source.HostSuffix}", StringComparison.OrdinalIgnoreCase))
+            {
+                sourceName = source.DisplayName;
+                return true;
+            }
+        }
+
+        sourceName = null;
+        return false;
     }
 
     private static bool TryFindRecipeElement(JsonElement element, out JsonElement recipeElement)
