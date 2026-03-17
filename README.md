@@ -181,6 +181,10 @@ Viele Rezepte auf einmal importieren — ideal für den **Word → ChatGPT → K
 
 Über `/Wochenplan` lassen sich Rezepte den 7 Tagen der Woche zuweisen. Die Einkaufsliste unter `/Einkaufsliste` aggregiert alle Zutaten der Woche automatisch — gleiche Zutaten mit gleicher Einheit werden summiert. Brüche und Bereiche werden korrekt verarbeitet.
 
+Für die Einkaufsliste gibt es zusätzlich eine konfigurierbare Normalisierung:
+- Schreibvarianten wie `Ei(er)` und `Eier` können über `ShoppingList:IngredientAliases` zusammengeführt werden.
+- Vorratszutaten wie `Salz`, `Pfeffer` oder `Wasser` können über `ShoppingList:ExcludedIngredientTokens` komplett ausgeblendet werden.
+
 ---
 
 ## 🌐 Mealplan API

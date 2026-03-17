@@ -29,6 +29,21 @@ builder.Services.AddRazorPages();
 builder.Services.AddHttpClient();
 builder.Services.Configure<ApiSecurityOptions>(builder.Configuration.GetSection("Security:Api"));
 builder.Services.Configure<AlexaSecurityOptions>(builder.Configuration.GetSection("Security:Alexa"));
+builder.Services.Configure<ShoppingListOptions>(builder.Configuration.GetSection("ShoppingList"));
+builder.Services.PostConfigure<ShoppingListOptions>(options =>
+{
+    var defaults = ShoppingListOptions.CreateDefault();
+
+    if (options.ExcludedIngredientTokens.Count == 0)
+    {
+        options.ExcludedIngredientTokens = defaults.ExcludedIngredientTokens;
+    }
+
+    if (options.IngredientAliases.Count == 0)
+    {
+        options.IngredientAliases = defaults.IngredientAliases;
+    }
+});
 builder.Services.PostConfigure<ApiSecurityOptions>(options =>
 {
     var env = Environment.GetEnvironmentVariable("KUECHENREZEPTE_MEALPLAN_API_KEY");

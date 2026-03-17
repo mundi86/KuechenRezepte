@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using KuechenRezepte.Data;
 using KuechenRezepte.Models;
 
@@ -10,11 +11,16 @@ public class MealPlanService : IMealPlanDayService
 {
     private readonly AppDbContext _context;
     private readonly RecipeQueryService _recipeQueryService;
+    private readonly ShoppingListOptions _shoppingListOptions;
 
-    public MealPlanService(AppDbContext context, RecipeQueryService recipeQueryService)
+    public MealPlanService(
+        AppDbContext context,
+        RecipeQueryService recipeQueryService,
+        IOptions<ShoppingListOptions>? shoppingListOptions = null)
     {
         _context = context;
         _recipeQueryService = recipeQueryService;
+        _shoppingListOptions = shoppingListOptions?.Value ?? ShoppingListOptions.CreateDefault();
     }
 
     public async Task<MealPlanWeekResult> GetWeekAsync(DateOnly? datum, CancellationToken cancellationToken = default)
@@ -78,7 +84,7 @@ public class MealPlanService : IMealPlanDayService
         {
             Montag = montag,
             KalenderWoche = ISOWeek.GetWeekOfYear(montag.ToDateTime(TimeOnly.MinValue)),
-            Items = AggregateShoppingItems(mahlzeiten)
+            Items = AggregateShoppingItems(mahlzeiten, _shoppingListOptions)
         };
     }
 
@@ -135,8 +141,9 @@ public class MealPlanService : IMealPlanDayService
         return $"Am {weekday}, den {dateText}, gibt es {rezept.Name}.{prepText}";
     }
 
-    internal static List<ShoppingListItem> AggregateShoppingItems(IEnumerable<Mahlzeit> mahlzeiten)
+    internal static List<ShoppingListItem> AggregateShoppingItems(IEnumerable<Mahlzeit> mahlzeiten, ShoppingListOptions? options = null)
     {
+        options ??= ShoppingListOptions.CreateDefault();
         var entries = new Dictionary<string, ShoppingAccumulator>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var mahlzeit in mahlzeiten)
@@ -149,8 +156,13 @@ public class MealPlanService : IMealPlanDayService
 
             foreach (var rz in rezept.RezeptZutaten)
             {
-                var ingredientName = rz.Zutat?.Name?.Trim();
+                var ingredientName = NormalizeShoppingListIngredientName(rz.Zutat?.Name, options);
                 if (string.IsNullOrWhiteSpace(ingredientName))
+                {
+                    continue;
+                }
+
+                if (ShouldExcludeFromShoppingList(ingredientName, options))
                 {
                     continue;
                 }
@@ -203,6 +215,51 @@ public class MealPlanService : IMealPlanDayService
                 MengenHinweise = v.Hints
             })
             .ToList();
+    }
+
+    internal static string? NormalizeShoppingListIngredientName(string? rawName, ShoppingListOptions? options = null)
+    {
+        options ??= ShoppingListOptions.CreateDefault();
+
+        if (string.IsNullOrWhiteSpace(rawName))
+        {
+            return null;
+        }
+
+        var normalized = Regex.Replace(rawName.Trim(), @"\s+", " ");
+        normalized = Regex.Replace(normalized, @"\s*\([^)]*\)", string.Empty);
+
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var key = NormalizeShoppingListKey(normalized);
+        return options.IngredientAliases.TryGetValue(key, out var alias)
+            ? alias
+            : normalized;
+    }
+
+    internal static bool ShouldExcludeFromShoppingList(string? ingredientName, ShoppingListOptions? options = null)
+    {
+        options ??= ShoppingListOptions.CreateDefault();
+        var pantryStaples = new HashSet<string>(options.ExcludedIngredientTokens, StringComparer.OrdinalIgnoreCase);
+        var normalized = NormalizeShoppingListIngredientName(ingredientName, options);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return false;
+        }
+
+        return NormalizeShoppingListKey(normalized)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(token => pantryStaples.Contains(token));
+    }
+
+    private static string NormalizeShoppingListKey(string value)
+    {
+        var normalized = Regex.Replace(value.ToLowerInvariant(), @"[^\p{L}\p{Nd}]+", " ");
+        return Regex.Replace(normalized, @"\s+", " ").Trim();
     }
 
     private static bool TryParseAmount(string? raw, out ParsedAmount parseResult)

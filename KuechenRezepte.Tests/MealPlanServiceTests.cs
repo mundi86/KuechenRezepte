@@ -127,4 +127,82 @@ public class MealPlanServiceTests
         Assert.Equal(3m, karotten.MengeVonSumme);
         Assert.Equal(4m, karotten.MengeBisSumme);
     }
+
+    [Fact]
+    public void AggregateShoppingItems_NormalizesOptionalPluralVariants()
+    {
+        var rezept = new Rezept
+        {
+            RezeptZutaten =
+            [
+                new RezeptZutat { Zutat = new Zutat { Name = "Ei(er)" }, Menge = "2", Einheit = "Stk" },
+                new RezeptZutat { Zutat = new Zutat { Name = "Eier" }, Menge = "3", Einheit = "Stk" },
+                new RezeptZutat { Zutat = new Zutat { Name = "Ei" }, Menge = "1", Einheit = "Stk" }
+            ]
+        };
+
+        var items = MealPlanService.AggregateShoppingItems([new Mahlzeit { Rezept = rezept }]);
+        var eier = Assert.Single(items, i => i.Name == "Eier" && i.Einheit == "Stk");
+
+        Assert.Equal(6m, eier.MengeSumme);
+    }
+
+    [Fact]
+    public void AggregateShoppingItems_ExcludesPantryStaples()
+    {
+        var rezept = new Rezept
+        {
+            RezeptZutaten =
+            [
+                new RezeptZutat { Zutat = new Zutat { Name = "grobes Salz" }, Menge = "1", Einheit = "Prise" },
+                new RezeptZutat { Zutat = new Zutat { Name = "schwarzer Pfeffer" }, Menge = "nach Geschmack", Einheit = null },
+                new RezeptZutat { Zutat = new Zutat { Name = "kaltes Wasser" }, Menge = "500", Einheit = "ml" },
+                new RezeptZutat { Zutat = new Zutat { Name = "Tomaten" }, Menge = "3", Einheit = "Stk" }
+            ]
+        };
+
+        var items = MealPlanService.AggregateShoppingItems([new Mahlzeit { Rezept = rezept }]);
+
+        var tomaten = Assert.Single(items);
+        Assert.Equal("Tomaten", tomaten.Name);
+        Assert.Equal("Stk", tomaten.Einheit);
+        Assert.Equal(3m, tomaten.MengeSumme);
+    }
+
+    [Fact]
+    public void ShouldExcludeFromShoppingList_RecognizesSinglePantryWordsInsideDescriptions()
+    {
+        Assert.True(MealPlanService.ShouldExcludeFromShoppingList("Meersalz"));
+        Assert.True(MealPlanService.ShouldExcludeFromShoppingList("Sprudelwasser"));
+        Assert.False(MealPlanService.ShouldExcludeFromShoppingList("Salzstangen"));
+    }
+
+    [Fact]
+    public void AggregateShoppingItems_UsesConfiguredAliasesAndExcludedTokens()
+    {
+        var options = new ShoppingListOptions
+        {
+            ExcludedIngredientTokens = ["essig"],
+            IngredientAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fruehlingszwiebel"] = "Frühlingszwiebeln",
+                ["frühlingszwiebel"] = "Frühlingszwiebeln"
+            }
+        };
+
+        var rezept = new Rezept
+        {
+            RezeptZutaten =
+            [
+                new RezeptZutat { Zutat = new Zutat { Name = "Frühlingszwiebel" }, Menge = "2", Einheit = "Stk" },
+                new RezeptZutat { Zutat = new Zutat { Name = "Essig" }, Menge = "1", Einheit = "EL" }
+            ]
+        };
+
+        var items = MealPlanService.AggregateShoppingItems([new Mahlzeit { Rezept = rezept }], options);
+
+        var zwiebeln = Assert.Single(items);
+        Assert.Equal("Frühlingszwiebeln", zwiebeln.Name);
+        Assert.Equal(2m, zwiebeln.MengeSumme);
+    }
 }
