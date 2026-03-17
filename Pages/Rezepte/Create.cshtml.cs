@@ -57,9 +57,9 @@ public class CreateModel : PageModel
             return Page();
         }
 
-        if (!TryValidateRecipeUrl(ImportUrl, out var recipeUri, out var sourceName))
+        if (!ChefkochImporter.TryValidateSupportedUrl(ImportUrl, out var recipeUri, out var sourceName))
         {
-            ImportStatusMessage = "Bitte eine gültige Chefkoch- oder Gaumenfreundin-URL verwenden.";
+            ImportStatusMessage = $"Bitte eine gültige {ChefkochImporter.GetSupportedSourceHint()}-URL verwenden.";
             ImportSucceeded = false;
             return Page();
         }
@@ -156,44 +156,6 @@ public class CreateModel : PageModel
     private async Task LoadBestehendeZutatenAsync()
     {
         BestehendeZutaten = await _recipeQueryService.GetAllIngredientsAsync();
-    }
-
-    private static bool TryValidateRecipeUrl(string url, out Uri? uri, out string sourceName)
-    {
-        uri = null;
-        sourceName = "die Seite";
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed))
-        {
-            return false;
-        }
-
-        if (!string.Equals(parsed.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!string.IsNullOrWhiteSpace(parsed.UserInfo))
-        {
-            return false;
-        }
-
-        var isChefkochHost =
-            string.Equals(parsed.Host, "chefkoch.de", StringComparison.OrdinalIgnoreCase) ||
-            parsed.Host.EndsWith(".chefkoch.de", StringComparison.OrdinalIgnoreCase);
-
-        var isGaumenfreundinHost =
-            string.Equals(parsed.Host, "gaumenfreundin.de", StringComparison.OrdinalIgnoreCase) ||
-            parsed.Host.EndsWith(".gaumenfreundin.de", StringComparison.OrdinalIgnoreCase);
-
-        if (!isChefkochHost && !isGaumenfreundinHost)
-        {
-            return false;
-        }
-
-        sourceName = isChefkochHost ? "Chefkoch" : "Gaumenfreundin";
-        uri = parsed;
-        return true;
     }
 
     private async Task<string?> FetchHtmlAsync(Uri recipeUri)
