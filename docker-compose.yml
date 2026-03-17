@@ -1,0 +1,19 @@
+services:
+  kuechenrezepte:
+    container_name: kuechenrezepte-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "6655:6655"
+    environment:
+      TZ: Europe/Vienna
+      ASPNETCORE_URLS: http://0.0.0.0:6655
+      ConnectionStrings__DefaultConnection: Data Source=/data/KuechenRezepte.db
+      KUECHENREZEPTE_MEALPLAN_API_KEY: ${KUECHENREZEPTE_MEALPLAN_API_KEY:-}
+      KUECHENREZEPTE_ALEXA_SKILL_ID: ${KUECHENREZEPTE_ALEXA_SKILL_ID:-}
+    volumes:
+      - /docker/KuechenRezepte/data:/data
+      - /docker/KuechenRezepte/uploads:/app/wwwroot/uploads
+      - /docker/KuechenRezepte/keys:/home/appuser/.aspnet/DataProtection-Keys
+    restart: unless-stopped

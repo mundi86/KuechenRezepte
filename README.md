@@ -18,6 +18,7 @@ Eine persönliche Rezeptverwaltung als **ASP.NET Core Razor Pages App** — Reze
 - [Alexa Integration](#-alexa-integration)
 - [Security-Konfiguration](#-security-konfiguration)
 - [Docker](#-docker)
+- [Deployment](#-deployment)
 - [Tests](#-tests)
 - [Datenbank & Upgrade](#-datenbank--upgrade)
 
@@ -336,19 +337,95 @@ Bei Überschreitung: HTTP `429`. Alle API-Zugriffe werden strukturiert geloggt (
 ## 🐳 Docker
 
 ```bash
-# Image bauen
-docker build -t kuechenrezepte:latest .
+# Host-Verzeichnisse anlegen
+mkdir -p /docker/KuechenRezepte/data \
+         /docker/KuechenRezepte/uploads \
+         /docker/KuechenRezepte/keys
 
-# Container starten
-docker run --rm -p 6655:6655 \
-  -v /docker/KuechenRezepte:/docker/KuechenRezepte \
-  -e KUECHENREZEPTE_MEALPLAN_API_KEY=dein-key \
-  kuechenrezepte:latest
+# Rechte für den Container-User (UID 10001)
+chown -R 10001:10001 /docker/KuechenRezepte/data \
+                     /docker/KuechenRezepte/uploads \
+                     /docker/KuechenRezepte/keys
+
+# Stack starten
+docker compose up -d --build
 ```
 
 Dann im Browser: `http://localhost:6655`
 
-> Der Container läuft als non-root user `appuser`.
+Persistente Host-Pfade:
+- `/docker/KuechenRezepte/data` → SQLite-Datenbank
+- `/docker/KuechenRezepte/uploads` → hochgeladene/importierte Bilder
+- `/docker/KuechenRezepte/keys` → ASP.NET Data Protection Keys
+
+> Der Container läuft als non-root user `appuser` mit UID `10001`.
+
+---
+
+## 🚀 Deployment
+
+### Lokal
+
+Lokal läuft nur die **Test-/Entwicklungsinstanz**. Dafür kannst du entweder direkt mit .NET starten:
+
+```bash
+dotnet watch run
+```
+
+oder den Container lokal testweise bauen:
+
+```bash
+docker compose up --build
+```
+
+Für lokale Tests ist es in Ordnung, mit Dev-Settings oder einer separaten SQLite-Datei zu arbeiten. Die lokale Instanz ist **nicht** das Produktionssystem.
+
+### Produktion
+
+Die produktive Instanz läuft auf dem Remote-Host unter:
+
+- Repo/Stack: `/docker/KuechenRezepte`
+- Compose-Projekt: `docker compose`
+- Exponierter Port: `6655`
+- URL im LAN: `http://192.168.1.183:6655/`
+
+Persistente Host-Pfade in Produktion:
+
+- `/docker/KuechenRezepte/data` → SQLite-Datenbank
+- `/docker/KuechenRezepte/uploads` → hochgeladene/importierte Bilder
+- `/docker/KuechenRezepte/keys` → ASP.NET Data Protection Keys
+
+### Erstes Setup auf dem Host
+
+```bash
+git clone <repo-url> /docker/KuechenRezepte
+cd /docker/KuechenRezepte
+
+mkdir -p /docker/KuechenRezepte/data \
+         /docker/KuechenRezepte/uploads \
+         /docker/KuechenRezepte/keys
+
+chown -R 10001:10001 /docker/KuechenRezepte/data \
+                     /docker/KuechenRezepte/uploads \
+                     /docker/KuechenRezepte/keys
+
+docker compose up -d --build
+```
+
+### Update-Workflow Produktion
+
+```bash
+cd /docker/KuechenRezepte
+git pull
+docker compose up -d --build
+```
+
+### Wichtige Betriebsdetails
+
+- Die produktive SQLite-DB liegt auf dem Host unter `/docker/KuechenRezepte/data/KuechenRezepte.db`.
+- Das Compose-Setup nutzt **keine Docker-Volumes**, sondern ausschließlich Host-Bind-Mounts.
+- Der Container läuft als non-root mit UID `10001`; die Host-Verzeichnisse müssen diesem User schreibbar gehören.
+- Die ASP.NET Data Protection Keys liegen bewusst persistent auf dem Host, damit Cookies/Tokens nach Container-Neustarts gültig bleiben.
 
 ---
 
