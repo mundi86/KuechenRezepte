@@ -57,9 +57,9 @@ public class CreateModel : PageModel
             return Page();
         }
 
-        if (!TryValidateChefkochUrl(ImportUrl, out var recipeUri))
+        if (!TryValidateRecipeUrl(ImportUrl, out var recipeUri, out var sourceName))
         {
-            ImportStatusMessage = "Bitte eine gültige Chefkoch-URL verwenden.";
+            ImportStatusMessage = "Bitte eine gültige Chefkoch- oder Gaumenfreundin-URL verwenden.";
             ImportSucceeded = false;
             return Page();
         }
@@ -67,7 +67,7 @@ public class CreateModel : PageModel
         var html = await FetchHtmlAsync(recipeUri!);
         if (html == null)
         {
-            ImportStatusMessage = "Import fehlgeschlagen. Die Seite konnte nicht geladen werden.";
+            ImportStatusMessage = $"Import fehlgeschlagen. {sourceName} konnte nicht geladen werden.";
             ImportSucceeded = false;
             return Page();
         }
@@ -75,7 +75,7 @@ public class CreateModel : PageModel
         var imported = _importer.Parse(html);
         if (imported == null || string.IsNullOrWhiteSpace(imported.Name))
         {
-            ImportStatusMessage = "Import fehlgeschlagen. Die Seite konnte nicht geparst werden.";
+            ImportStatusMessage = $"Import fehlgeschlagen. {sourceName} konnte nicht geparst werden.";
             ImportSucceeded = false;
             return Page();
         }
@@ -107,7 +107,7 @@ public class CreateModel : PageModel
 
         ImportUrl = recipeUri!.ToString();
         ImportSucceeded = true;
-        ImportStatusMessage = $"Import erfolgreich. {Zutaten.Count} Zutaten wurden übernommen.";
+        ImportStatusMessage = $"Import erfolgreich. {sourceName} wurde erkannt und {Zutaten.Count} Zutaten wurden übernommen.";
 
         // ModelState has precedence in Razor fields; clear it so imported values are displayed.
         ModelState.Clear();
@@ -158,9 +158,10 @@ public class CreateModel : PageModel
         BestehendeZutaten = await _recipeQueryService.GetAllIngredientsAsync();
     }
 
-    private static bool TryValidateChefkochUrl(string url, out Uri? uri)
+    private static bool TryValidateRecipeUrl(string url, out Uri? uri, out string sourceName)
     {
         uri = null;
+        sourceName = "die Seite";
         if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed))
         {
             return false;
@@ -181,11 +182,16 @@ public class CreateModel : PageModel
             string.Equals(parsed.Host, "chefkoch.de", StringComparison.OrdinalIgnoreCase) ||
             parsed.Host.EndsWith(".chefkoch.de", StringComparison.OrdinalIgnoreCase);
 
-        if (!isChefkochHost)
+        var isGaumenfreundinHost =
+            string.Equals(parsed.Host, "gaumenfreundin.de", StringComparison.OrdinalIgnoreCase) ||
+            parsed.Host.EndsWith(".gaumenfreundin.de", StringComparison.OrdinalIgnoreCase);
+
+        if (!isChefkochHost && !isGaumenfreundinHost)
         {
             return false;
         }
 
+        sourceName = isChefkochHost ? "Chefkoch" : "Gaumenfreundin";
         uri = parsed;
         return true;
     }

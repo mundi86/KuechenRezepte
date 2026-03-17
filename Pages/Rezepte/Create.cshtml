@@ -132,10 +132,14 @@
     <div class="col-xl-4">
         <form method="post" asp-page-handler="Import" class="glass-panel form-side-panel import-helper mb-3">
             <h5 class="mb-2">Import Assistent</h5>
-            <p class="text-muted small mb-3">Chefkoch-Link einfügen, Felder automatisch vorbefüllen und vor dem Speichern kurz prüfen.</p>
-            <label asp-for="ImportUrl" class="visually-hidden">Chefkoch URL</label>
+            <p class="text-muted small mb-3">Chefkoch- oder Gaumenfreundin-Link einfügen, Felder automatisch vorbefüllen und vor dem Speichern kurz prüfen.</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="badge bg-secondary">Chefkoch</span>
+                <span class="badge bg-secondary">Gaumenfreundin</span>
+            </div>
+            <label asp-for="ImportUrl" class="visually-hidden">Rezept-URL</label>
             <div class="input-group mb-2">
-                <input asp-for="ImportUrl" class="form-control" placeholder="https://www.chefkoch.de/rezepte/..." />
+                <input asp-for="ImportUrl" class="form-control" placeholder="https://www.chefkoch.de/rezepte/... oder https://www.gaumenfreundin.de/..." />
                 <button type="submit" class="btn btn-primary">Importieren</button>
             </div>
             @if (!string.IsNullOrWhiteSpace(Model.ImportStatusMessage))
