@@ -42,7 +42,7 @@ Eine persönliche Rezeptverwaltung als **ASP.NET Core Razor Pages App** — Reze
   - Copy-to-Clipboard, Druckansicht, Abhaken mit Wochen-Persistenz (`localStorage`)
 
 ### Import
-- 🍴 **Chefkoch-Import** — URL einfügen, Rezept wird automatisch geparst (JSON-LD + Hauptbild)
+- 🍴 **Website-Import** — URLs von `chefkoch.de` und `gaumenfreundin.de` automatisch parsen (JSON-LD + Bild)
 - 📦 **JSON-Batch-Import** — viele Rezepte auf einmal importieren (Datei oder Paste, inkl. Dry-Run)
 
 ### Alexa & API
@@ -113,14 +113,16 @@ Dann im Browser: `http://localhost:5000`
 
 ## 📥 Rezepte importieren
 
-### 🍴 Chefkoch-Import
+### 🍴 Website-Import
 
-URL einer Chefkoch-Rezeptseite einfügen — die App liest automatisch Name, Zutaten, Zubereitung und Titelbild aus dem JSON-LD der Seite aus.
+URL einer unterstützten Rezeptseite einfügen — aktuell `chefkoch.de` und `gaumenfreundin.de`. Die App liest automatisch Name, Zutaten, Zubereitung und Titelbild aus dem JSON-LD der Seite aus.
 
 **Bildpriorität:**
 1. Slider-Bild 3:2 (`ds-slider-image__image-wrap--3_2`)
 2. Slider-Bild allgemein (`ds-slider-image__image-wrap`)
 3. Fallback auf `img.ds-teaser-link__image`
+
+> Die spezielle Bildpriorität betrifft `chefkoch.de`. Auf `gaumenfreundin.de` reicht in der Regel bereits das eingebettete Rezept-JSON-LD mit Bild-URL.
 
 Wenn kein eigenes Bild hochgeladen wird, aber ein externer Link vorhanden ist, wird das Bild automatisch heruntergeladen und lokal unter `/uploads/...` gespeichert (max. 2 MB, nur `jpg/jpeg/png/webp`).
 
